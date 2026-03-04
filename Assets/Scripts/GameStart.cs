@@ -11,6 +11,7 @@ public class GameStart : MonoBehaviour
 
     void Start()
     {
+        // 시작버튼을 눌렀을떄 스토리 씬으로 이동
         Startbtn.onClick.AddListener(() => SceneManager.LoadScene(1));
     }
 }
