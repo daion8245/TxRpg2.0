@@ -8,11 +8,14 @@ public class StoryManager : MonoBehaviour
 {
     [SerializeField]
     TMP_Text storyTxt;
+
     [SerializeField]
     Button NextBtn;
+
     [SerializeField]
     Button SkipBtn;
 
+    // 스토리 줄들을 배열로 저장
     public string[] stroyLines =
     {
         "플레이어는 기억을 잃은 채 눈을 뜬다.",
@@ -47,31 +50,36 @@ public class StoryManager : MonoBehaviour
         // 스페이스바 눌렀을 때
         if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
         {
+            // 다음 줄로 이동
             NextLine();
         }
     }
 
     public void NextLine()
     {
+        // 다음 줄로 이동
         index++;
         if (index < stroyLines.Length)
         {
+            // 스토리 텍스트 업데이트
             storyTxt.text = stroyLines[index];
-
         }
         else
         {
+            // 스토리가 끝났을 때 게임 씬으로 이동
             SceneManager.LoadScene(2);
         }
     }
 
     public void SkipStory()
     {
+        // 스토리 건너뛰기
         StartGame();
     }
 
     void StartGame()
     {
+        // 게임 씬으로 이동
         SceneManager.LoadScene(2);
     }
 }
