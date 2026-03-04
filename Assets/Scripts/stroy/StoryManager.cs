@@ -2,11 +2,16 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.SceneManagement;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 public class StoryManager : MonoBehaviour
 {
     [SerializeField]
     TMP_Text storyTxt;
+    [SerializeField]
+    Button NextBtn;
+    [SerializeField]
+    Button SkipBtn;
 
     public string[] stroyLines =
     {
@@ -31,6 +36,10 @@ public class StoryManager : MonoBehaviour
     void Start()
     {
         storyTxt.text = stroyLines[index];
+
+        // 버튼 클릭 이벤트 연결
+        NextBtn.onClick.AddListener(NextLine);
+        SkipBtn.onClick.AddListener(SkipStory);
     }
 
     void Update()
