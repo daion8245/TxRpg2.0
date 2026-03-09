@@ -160,16 +160,175 @@ Scene
 
 ### STEP 3: 캐릭터 프리팹 만들기
 
+> **프리팹이란?** 미리 만들어 놓은 "캐릭터 틀"입니다.
+> 게임이 실행되면 `EntityFactory`가 이 프리팹을 복사(Instantiate)해서 전투 씬에 캐릭터를 배치합니다.
+> 여러분이 할 일은 **빈 게임오브젝트에 컴포넌트 4개를 붙이고 프리팹으로 저장**하는 것뿐입니다!
+
 스크립트 위치: `Assets/Scripts/BattleSystem/Entity/BattleEntity.cs`
 
-프리팹에 추가할 **실제 Unity 컴포넌트**:
+---
+
+#### 3-1. 프리팹 만들기 (처음부터 따라하기)
+
+**① 빈 GameObject 만들기**
+1. Unity 상단 메뉴 → **GameObject → Create Empty**
+2. 이름을 캐릭터 이름으로 변경 (예: `Warrior`, `Slime` 등)
+
+**② SpriteRenderer 추가하기** (캐릭터 그림 표시용)
+1. 방금 만든 GameObject를 클릭
+2. Inspector 창 → **Add Component** 버튼 클릭
+3. 검색창에 `SpriteRenderer` 입력 → 선택
+4. SpriteRenderer의 `Sprite` 항목에 캐릭터 이미지(스프라이트)를 드래그&드롭
+5. `Sorting Layer` / `Order in Layer`를 필요에 따라 조정 (캐릭터가 배경 위에 보이도록)
+
+**③ Animator 추가하기** (애니메이션 재생용)
+1. Inspector 창 → **Add Component** → `Animator` 검색 → 선택
+2. Animator Controller 에셋을 만들어야 합니다 (아래 3-2에서 설명)
+3. Animator 컴포넌트의 `Controller` 슬롯에 만든 AnimatorController 에셋을 드래그&드롭
+
+**④ Collider2D 추가하기** (피격 판정용)
+1. Inspector 창 → **Add Component** → `BoxCollider2D` 검색 → 선택
+   - (캐릭터 모양에 따라 `CircleCollider2D`나 `CapsuleCollider2D`도 가능)
+2. Collider의 크기(Size)와 위치(Offset)를 캐릭터 몸에 맞게 조정
+3. **Is Trigger** 체크박스는 꺼둔 상태 그대로 두세요
+
+**⑤ BattleEntity 스크립트 추가하기** (핵심!)
+1. Inspector 창 → **Add Component** → `BattleEntity` 검색 → 선택
+2. 이 스크립트 하나만 추가하면 됩니다!
+   - EntityStats, EntitySkills, EntityBuffs 등은 **절대 직접 추가하지 마세요**
+   - 게임 실행 시 `BattleEntity.Initialize()`가 전부 자동 생성합니다
+
+**⑥ (선택) HitPoint 자식 오브젝트 만들기** (이펙트 생성 위치)
+1. 만든 GameObject를 우클릭 → **Create Empty**
+2. 자식 오브젝트의 이름을 정확히 **`HitPoint`** 로 변경 (대소문자 주의!)
+3. HitPoint의 위치(Transform Position)를 캐릭터의 몸통 중앙 부근으로 이동
+   - 이 위치에 타격 이펙트, 데미지 숫자가 표시됩니다
+   - 없으면 Collider의 중심점을 자동으로 사용합니다
+
+**⑦ 프리팹으로 저장하기**
+1. Hierarchy 창의 GameObject를 **Project 창의 원하는 폴더로 드래그&드롭**
+   - 권장 경로: `Assets/Prefabs/Characters/` 또는 `Assets/Prefabs/Enemies/`
+2. 드래그하면 파란색 아이콘의 프리팹 파일(.prefab)이 생성됩니다
+3. Hierarchy에 남아있는 원본 GameObject는 삭제해도 됩니다
+
+---
+
+#### 3-2. Animator Controller 만들기 (애니메이션 설정)
+
+> Animator Controller는 "어떤 상황에서 어떤 애니메이션을 재생할지" 정해주는 설정 파일입니다.
+
+**① AnimatorController 에셋 만들기**
+1. Project 창에서 우클릭 → **Create → Animator Controller**
+2. 이름을 `캐릭터이름_Controller`로 변경 (예: `Warrior_Controller`)
+
+**② 애니메이션 클립 준비하기**
+- 각 동작(대기, 공격, 피격, 사망)에 해당하는 스프라이트 시트 또는 애니메이션 클립이 필요합니다
+- 아직 애니메이션이 없다면 단일 스프라이트로 임시 클립을 만들어도 됩니다
+
+**③ 상태(State) 추가하기** — 반드시 아래 4개 상태를 만들어야 합니다
+
+`AnimatorController`를 더블클릭하여 Animator 창을 열고:
+1. Animator 창에서 우클릭 → **Create State → Empty** → 이름을 `idle`로 변경
+2. 같은 방법으로 `attack`, `hit`, `die` 상태를 추가
+3. 각 상태를 클릭하고 Inspector에서 **Motion** 항목에 해당 애니메이션 클립을 연결
+
+| 상태 이름 (정확히 소문자로!) | 용도 | 비고 |
+|---------------------------|------|------|
+| `idle` | 대기 모션 | **기본 상태(주황색)**로 설정 - 우클릭 → Set as Layer Default State |
+| `attack` | 공격 모션 | 공격 후 idle로 돌아감 |
+| `hit` | 피격 모션 | 피격 후 idle로 돌아감 |
+| `die` | 사망 모션 | 재생 후 멈춤 (Loop Time 꺼야 함) |
+
+> **중요!** 상태 이름은 반드시 **소문자**(`idle`, `attack`, `hit`, `die`)로 만드세요.
+> `SpriteAnimAdapter`가 이 이름으로 애니메이션을 찾습니다.
+
+**④ Transition(전환) 설정하기**
+- 각 상태에서 코드로 직접 전환하므로, **Trigger 파라미터 기반 전환**을 쓰거나
+- 단순히 코드에서 `Animator.Play("상태이름")`으로 직접 재생합니다
+- 복잡한 Transition 설정은 필요 없습니다
+
+**⑤ idle 상태 루프 설정**
+1. idle에 연결된 애니메이션 클립을 선택
+2. Inspector에서 **Loop Time** ✅ 체크 (대기 모션은 반복 재생)
+3. die 클립은 **Loop Time** ❌ 해제 (사망 모션은 한 번만 재생)
+
+---
+
+#### 3-3. 프리팹 완성 후 데이터 연결하기
+
+프리팹을 만들었으면 **UnitDataSO 에셋에 연결**해야 합니다:
+1. STEP 1에서 만든 UnitDataSO 에셋을 클릭
+2. Inspector에서 **Prefab** 슬롯에 방금 만든 프리팹을 드래그&드롭
+3. Skills 배열에 사용할 SkillDataSO 에셋들을 연결
+
 ```
-[캐릭터 프리팹 - GameObject]
-├── BattleEntity (스크립트)    ← 유일하게 추가하는 커스텀 스크립트!
-├── Animator                    ← Unity 기본 컴포넌트 (애니메이션 재생용)
-├── SpriteRenderer              ← Unity 기본 컴포넌트 (캐릭터 그림 표시)
-├── Collider2D                  ← Unity 기본 컴포넌트 (피격 판정용)
-└── (선택) "HitPoint" 자식 오브젝트  ← 이펙트가 생성될 위치
+[UnitDataSO 에셋 - Inspector 예시]
+┌──────────────────────────────────────┐
+│ Unit Name:    전사                     │
+│ Portrait:     [전사 초상화 스프라이트]    │
+│ Prefab:       [Warrior.prefab] ◀── 여기!│
+│                                        │
+│ Base Hp:      500                      │
+│ Base Mp:      100                      │
+│ Base Atk:     80                       │
+│ Base Def:     50                       │
+│ Base Spd:     30                       │
+│ Base Kd:      15    (크리티컬 확률 %)    │
+│ Base Kr:      50    (크리티컬 피해 %)    │
+│                                        │
+│ Skills:       [3개]                     │
+│   [0] SlashSkill                       │
+│   [1] PowerStrike                      │
+│   [2] DefenseUp                        │
+│                                        │
+│ Team:         Player                   │
+└──────────────────────────────────────┘
+```
+
+---
+
+#### 3-4. 프리팹이 게임에서 생성되는 과정 (이해용)
+
+> 이 과정은 **전부 자동**이므로 여러분이 코드를 수정할 필요는 없습니다.
+> 하지만 문제가 생겼을 때 어디를 확인해야 하는지 알기 위해 흐름을 이해해두세요.
+
+```
+[배틀 시작 - 자동 실행 흐름]
+
+1. BattleManager.StartBattle(stageData, playerParty) 호출
+       ↓
+2. EntityFactory.CreateEntity(unitData, team, position) 실행
+       ↓
+3. unitData.prefab을 Instantiate (프리팹 복사)
+   └→ 이때 SpriteRenderer, Animator, Collider2D가 함께 복사됨
+       ↓
+4. BattleEntity.Initialize(unitData, team) 자동 호출
+   ├→ EntityStats 생성    : HP=500, MP=100, ATK=80 ... (UnitDataSO 값 복사)
+   ├→ EntitySkills 생성   : 스킬 3개를 SkillRuntime으로 래핑 (쿨다운 추적용)
+   ├→ EntityBuffs 생성    : 빈 버프 목록으로 초기화
+   ├→ EntityHitbox 생성   : Collider2D + HitPoint 참조 저장
+   ├→ SpriteAnimAdapter 생성 : Animator 컴포넌트 래핑
+   └→ EntityAnimator 생성 : 애니메이션 상태머신 초기화
+       ↓
+5. 캐릭터가 idle 애니메이션을 재생하며 전투 위치에 배치됨
+   └→ 적(Enemy)이면 자동으로 좌우 반전 (왼쪽을 바라봄)
+```
+
+---
+
+#### 3-5. 프리팹 최종 구조 요약
+
+```
+[캐릭터 프리팹 - 최종 구조]
+WarriorPrefab (GameObject)
+│
+├── [컴포넌트] BattleEntity        ← 커스텀 스크립트 (1개만!)
+├── [컴포넌트] SpriteRenderer      ← 캐릭터 스프라이트 표시
+├── [컴포넌트] Animator            ← Controller에 idle/attack/hit/die 설정
+├── [컴포넌트] BoxCollider2D       ← 캐릭터 몸 크기에 맞게 조정
+│
+└── HitPoint (자식 GameObject)     ← (선택) 빈 오브젝트, 몸통 중앙에 배치
+    └── Transform만 있으면 됨
 ```
 
 **프리팹에 추가하면 안 되는 것들** (BattleEntity.Initialize()가 코드에서 자동 생성):
@@ -180,14 +339,23 @@ Scene
 - ~~EntityAnimator~~ → `new EntityAnimator(adapter, spriteRenderer)` 로 자동 생성
 - ~~SpriteAnimAdapter~~ → `new SpriteAnimAdapter(animator)` 로 자동 생성
 
-> 요약: 프리팹에는 `BattleEntity` 스크립트 + Unity 기본 컴포넌트(Animator, SpriteRenderer, Collider2D)만 추가하세요.
-> 나머지는 `BattleEntity.Initialize(UnitDataSO data, EntityTeam team)` 호출 시 전부 자동으로 만들어집니다.
+---
 
-**필요한 애니메이션 상태** (Animator Controller에 설정):
-- `Idle` — 대기
-- `Attack` — 공격
-- `Hit` — 피격
-- `Die` — 사망
+#### 3-6. 문제 해결 체크리스트
+
+프리팹 관련 문제가 생기면 아래를 확인하세요:
+
+| 증상 | 확인할 것 |
+|------|----------|
+| 캐릭터가 안 보임 | SpriteRenderer에 Sprite가 연결되어 있는지 확인 |
+| 캐릭터가 투명함 | SpriteRenderer의 Color 알파값이 255인지 확인 |
+| 애니메이션이 안 됨 | Animator에 Controller가 연결되어 있는지 확인 |
+| idle만 안 됨 | idle 상태가 Default State(주황색)로 설정되어 있는지 확인 |
+| 사망 후 다시 움직임 | die 애니메이션 클립의 Loop Time이 꺼져 있는지 확인 |
+| 이펙트 위치가 이상함 | HitPoint 자식 오브젝트의 위치(Transform)가 몸통 중앙인지 확인 |
+| 피격 판정이 안 됨 | Collider2D가 캐릭터 크기에 맞는지, 너무 작지 않은지 확인 |
+| 캐릭터가 안 생성됨 | UnitDataSO의 Prefab 슬롯에 프리팹이 연결되어 있는지 확인 |
+| "idle" 상태를 못 찾음 | Animator Controller의 상태 이름이 정확히 소문자(`idle`)인지 확인 |
 
 ---
 

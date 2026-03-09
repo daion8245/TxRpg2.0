@@ -67,7 +67,7 @@ public class StoryManager : MonoBehaviour
         else
         {
             // 스토리가 끝났을 때 게임 씬으로 이동
-            SceneManager.LoadScene(2);
+            SceneManager.LoadScene("Village_01");
         }
     }
 
@@ -80,6 +80,6 @@ public class StoryManager : MonoBehaviour
     void StartGame()
     {
         // 게임 씬으로 이동
-        SceneManager.LoadScene(2);
+        SceneManager.LoadScene("Village_01");
     }
 }
