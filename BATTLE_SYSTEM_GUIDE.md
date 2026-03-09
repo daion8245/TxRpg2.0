@@ -1,526 +1,405 @@
-# 유니티 배틀 시스템 적용 가이드 (초보자용)
+# TxRpg2.0 배틀 시스템 - 구현 가능 기능 분석
 
-> TxRpg2.0 배틀 시스템을 처음 접하는 개발자를 위한 단계별 가이드입니다.
-
----
-
-## 먼저 알아야 할 것: 클래스 분류
-
-이 배틀 시스템에는 두 종류의 클래스가 있습니다.
-**이 분류를 이해하는 것이 가장 중요합니다!**
-
-### MonoBehaviour 클래스 (씬에 GameObject로 배치해야 함)
-
-| 클래스 | 역할 | 비고 |
-|--------|------|------|
-| `BattleManager` | 배틀 전체 관리 | Awake()에서 내부 클래스들을 `new`로 자동 생성 |
-| `SoundManager` | 사운드 재생 | |
-| `EffectManager` | 시각 이펙트 | |
-| `BattleCameraController` | 카메라 제어 | Camera 컴포넌트 필요 |
-| `SkillSelectUI` | 스킬 선택 UI | Canvas 하위에 배치 |
-| `BattleHUD` | HP바 등 전투 HUD | Canvas 하위에 배치 |
-| `BattleEntity` | 캐릭터 엔티티 | **프리팹**으로 존재, 런타임에 자동 생성됨 |
-| `DamagePopup` | 데미지 숫자 팝업 | **프리팹**으로 존재, 풀링 |
-
-### 일반 C# 클래스 (씬에 배치하지 않음! 코드에서 `new`로 자동 생성됨)
-
-| 클래스 | 누가 생성하나? | 역할 |
-|--------|--------------|------|
-| `BattleStateMachine` | BattleManager.StartBattle() | 배틀 흐름 상태 머신 |
-| `TurnManager` | BattleManager.Awake() | 턴 카운터, 속도순 정렬 |
-| `ActionQueue` | BattleManager.Awake() | 행동 대기열 |
-| `AIController` | BattleManager.Awake() | 적 AI 행동 결정 |
-| `EntityFactory` | BattleManager.Awake() | 프리팹으로 BattleEntity 생성 |
-| `SkillExecutor` | 코드 내부 | 스킬 타임라인 실행 |
-| `EntityStats` | BattleEntity.Initialize() | HP/MP/ATK 등 스탯 |
-| `EntitySkills` | BattleEntity.Initialize() | 스킬 목록 + 쿨다운 |
-| `EntityBuffs` | BattleEntity.Initialize() | 버프/디버프 관리 |
-| `EntityHitbox` | BattleEntity.Initialize() | 피격 판정 위치 |
-| `EntityAnimator` | BattleEntity.Initialize() | 애니메이션 제어 |
-| `SpriteAnimAdapter` | BattleEntity.Initialize() | Animator 컴포넌트 래핑 |
-| `DamageCalculator` | 생성 불필요 (static 클래스) | 데미지 공식 계산 |
-
-> 즉, **BattleManager 하나만 씬에 배치하면** TurnManager, ActionQueue, AIController 등은
-> Awake()에서 자동으로 만들어집니다. 직접 씬에 추가할 필요가 없습니다!
+> 현재 `Assets/Scripts/BattleSystem/` 코드베이스 아키텍처를 기반으로
+> 구현 가능한 기능과 불가능한 기능을 정리한 문서입니다.
 
 ---
 
-## 배틀 시스템이 어떻게 동작하나?
-
-```
-[게임 시작]
-    ↓
-BattleManager.StartBattle(stageData, party)  ← 배틀 시작 명령
-    ↓
-BattleManager.Awake()에서 이미 생성된 것들:
-  - TurnManager (new)
-  - ActionQueue (new)
-  - AIController (new)
-  - EntityFactory (new)
-    ↓
-[배틀 루프 - BattleStateMachine이 관리]
-TurnStartPhase    → 턴 시작 (속도순 정렬, 버프 처리)
-ActionSelectPhase → 행동 선택 (플레이어: SkillSelectUI / 적: AIController)
-ExecutePhase      → 행동 실행 (SkillExecutor가 타임라인 재생)
-TurnEndPhase      → 턴 종료 (정리)
-    ↓
-ResultPhase       → 승리/패배 결과 화면
-```
+## ✅ 구현 가능한 기능
 
 ---
 
-## 단계별 적용 가이드
+### 1. 배틀 이펙트 구현
 
-### STEP 1: 데이터 에셋 만들기 (ScriptableObject)
+> `EffectDataSO`, `EffectManager`, `IPoolable`, `SpawnEffectAction` 기반
 
-> **ScriptableObject** = 게임 데이터를 담는 "데이터 파일"이라고 생각하세요.
-> 스크립트(.cs)는 이미 만들어져 있고, 여러분은 Unity 에디터에서 **에셋(.asset)을 생성하고 값을 입력**하면 됩니다.
+- **원소별 이펙트 차별화**
+  `EffectDataSO.prefab`에 원소(Fire/Ice/Lightning/Dark/Holy)마다 다른 VFX 프리팹을 지정하고,
+  `SpawnEffectAction`에서 `SkillDataSO.element` 값을 읽어 해당 이펙트를 선택 소환.
+  데이터만 교체하면 코드 수정 없이 원소별 시각화 가능.
 
-#### 캐릭터 데이터 에셋 (UnitDataSO)
-- Unity 에디터에서: 프로젝트 창 우클릭 → Create → UnitData
-- 스크립트 위치: `Assets/Scripts/BattleSystem/Data/UnitDataSO.cs`
+- **히트 임팩트 이펙트 (타격감)**
+  `ApplyDamageAction` 직후 `SpawnEffectAction`을 타임라인에 배치하면,
+  데미지 순간 `EntityHitbox.Center` 좌표에 충격파·스파크 이펙트 소환 가능.
+  `EffectDataSO.attachToTarget = true`로 타겟 엔티티에 부착하여 따라다니게 설정 가능.
 
-| 항목 | 설명 |
-|------|------|
-| Name | 캐릭터 이름 |
-| HP / MP | 체력 / 마나 |
-| ATK | 공격력 |
-| DEF | 방어력 |
-| SPD | 속도 (턴 순서 결정) |
-| KD | 크리티컬 확률 (%) |
-| KR | 크리티컬 피해 (%) |
-| Prefab | 캐릭터 프리팹 (BattleEntity가 붙은 것) |
-| Skills | 보유 스킬 목록 (SkillDataSO 에셋 연결) |
+- **상태이상 지속 이펙트 (DoT 시각화)**
+  `EntityBuffs.AddBuff()` 호출 시 `EffectManager.SpawnEffect()`를 함께 호출해
+  독·화상·출혈 파티클을 엔티티 위에 붙이고, `TickBuffs()`로 버프 만료 시 함께 제거.
 
-#### 스킬 데이터 에셋 (SkillDataSO)
-- 스크립트 위치: `Assets/Scripts/BattleSystem/Data/SkillDataSO.cs`
+- **치명타 전용 이펙트**
+  `DamageCalculator.Calculate()`가 반환하는 `DamageResult.IsCritical == true`일 때
+  별도 크리티컬 이펙트 채널을 발행하면, `EffectManager`가 금색 폭발 등 전용 VFX 추가 소환 가능.
 
-| 항목 | 선택지 |
-|------|--------|
-| Category | Physical / Magical / Healing / Buff / Debuff |
-| Element | None / Fire / Ice / Lightning / Dark / Holy |
-| TargetType | 단일적 / 전체적 / 단일아군 / 전체아군 / 자신 |
-| Power | 스킬 위력 (데미지 공식에 사용) |
-| MP Cost | 마나 소모량 |
-| Cooldown | 재사용 대기 턴 수 |
-| Timeline | 스킬 연출 순서 (아래 STEP 6 참고) |
-
-#### 스테이지 데이터 에셋 (StageDataSO)
-- 스크립트 위치: `Assets/Scripts/BattleSystem/Data/StageDataSO.cs`
-- 등장 몬스터 목록, 플레이어 배치 슬롯, 보상(골드/아이템) 설정
+- **오브젝트 풀링 기반 이펙트 재사용**
+  `BattleEffect`가 이미 `IPoolable` 인터페이스를 구현하므로,
+  `EffectManager`에 풀 딕셔너리를 추가해 동일 이펙트 반복 소환 시 생성·파괴 비용 없이 재활용 가능.
 
 ---
 
-### STEP 2: 씬 설정하기
+### 2. 애니메이션 구현
 
-**배틀 씬 열기**
-```
-Assets/Scenes/Batttle/BattleTest.unity
-```
+> `EntityAnimator`, `IAnimationAdapter`, `SpriteAnimAdapter`, `AnimStateMachine`, `TweenHelper` 기반
 
-씬에 배치해야 할 **실제 MonoBehaviour 오브젝트**:
-```
-Scene
-├── BattleManager              ← 배틀 전체 관리 (핵심!)
-│   (내부에서 TurnManager, ActionQueue, AIController, EntityFactory를 자동 생성)
-│
-├── SoundManager               ← 사운드 재생
-├── EffectManager              ← 시각 이펙트
-├── BattleCameraController     ← 카메라 (Camera 컴포넌트 필요)
-│
-└── Canvas                     ← UI
-    ├── SkillSelectUI          ← 스킬 선택 창
-    └── BattleHUD              ← HP바, 턴 표시
-```
+- **커스텀 스킬 애니메이션**
+  `SkillActionData.animationName`에 임의의 문자열을 설정하면
+  `PlayAnimAction`이 `EntityAnimator.PlayAnimationAsync(name)`을 호출하여
+  기본 5개 상태(Idle/Attack/Hit/Die/Move) 외의 커스텀 애니메이션 재생 가능.
+  Unity Animator에 해당 State만 추가하면 적용됨.
 
-**씬에 배치하면 안 되는 것들** (코드에서 자동 생성됨):
-- ~~TurnManager~~ → BattleManager가 `new TurnManager()`로 생성
-- ~~ActionQueue~~ → BattleManager가 `new ActionQueue()`로 생성
-- ~~AIController~~ → BattleManager가 `new AIController()`로 생성
-- ~~SkillExecutor~~ → 코드 내부에서 자동 생성
-- ~~EntityFactory~~ → BattleManager가 `new EntityFactory(battleRoot)`로 생성
+- **Spine 스켈레탈 애니메이션 연동**
+  `SpineAnimAdapter`가 이미 `IAnimationAdapter` 인터페이스로 선언되어 있어,
+  Spine SDK의 `SkeletonAnimation.state.SetAnimation()`을 내부에 구현하면
+  뼈대 기반 부드러운 애니메이션으로 즉시 전환 가능. 백엔드 교체만으로 완성.
 
-#### 인스펙터에서 이벤트 채널 연결하기
+- **히트 플래시 / 피격 색상 연출**
+  `EntityAnimator.FlashAsync(Color, float)`가 `TweenHelper.ColorFlashAsync()`를 래핑하므로,
+  피격 시 흰색 플래시, 독 데미지 시 녹색 플래시 등 데미지 유형별 색상을
+  `ApplyDamageAction`에서 분기하여 호출 가능.
 
-각 MonoBehaviour에는 `[SerializeField]`로 선언된 이벤트 채널 필드가 있습니다.
-**반드시 인스펙터에서 해당 ScriptableObject 에셋을 드래그&드롭으로 연결해야 합니다!**
+- **입장·등장 애니메이션**
+  `BattleIntroPhase`에서 엔티티 생성 후 `PlayAnimationAsync("enter")`를 호출하고,
+  `TweenHelper.MoveToAsync()`를 조합해 슬라이드 인 등의 입장 연출 구현 가능.
 
-| 오브젝트 | 연결해야 할 이벤트 채널 |
-|----------|----------------------|
-| BattleManager | BattleStartEventChannel, BattleEndEventChannel, TurnChangedEventChannel |
-| SoundManager | PlaySFXEventChannel, PlayBGMEventChannel, StopBGMEventChannel |
-| EffectManager | SpawnEffectEventChannel |
-| BattleCameraController | CameraShakeEventChannel, CameraZoomEventChannel |
-| BattleHUD | TurnChangedEventChannel, DamageEventChannel |
+- **스케일 펀치 (강조 애니메이션)**
+  `TweenHelper.ScalePunchAsync(Transform, Vector3, float)`가 이미 구현되어 있어,
+  치명타나 버프 적용 시 엔티티 크기를 일시적으로 키우는 강조 연출을
+  타임라인 액션(`WaitAction` 앞뒤)에 추가 가능.
 
-> 이벤트 채널 에셋은 `Assets/Scripts/BattleSystem/Core/EventBus/Events/` 폴더에서
-> 우클릭 → Create 메뉴로 생성할 수 있습니다.
+- **입장 순서 연출 (스태거 등장)**
+  `EntityFactory.CreatePlayerParty()`가 순차적으로 엔티티를 생성하므로,
+  각 엔티티 생성 후 `WaitAction`을 삽입해 순서대로 입장하는 연출 가능.
 
 ---
 
-### STEP 3: 캐릭터 프리팹 만들기
+### 3. 오브제(무기·장비) 부착 및 별도 애니메이션
 
-> **프리팹이란?** 미리 만들어 놓은 "캐릭터 틀"입니다.
-> 게임이 실행되면 `EntityFactory`가 이 프리팹을 복사(Instantiate)해서 전투 씬에 캐릭터를 배치합니다.
-> 여러분이 할 일은 **빈 게임오브젝트에 컴포넌트 4개를 붙이고 프리팹으로 저장**하는 것뿐입니다!
+> `BattleEntity` 컴포넌트 구조, `EntityAnimator`, `IAnimationAdapter`, `EntityHitbox` 기반
 
-스크립트 위치: `Assets/Scripts/BattleSystem/Entity/BattleEntity.cs`
+- **무기 오브젝트 자식 GameObject 부착**
+  `BattleEntity`는 컴포넌트 조합 구조이므로, 칼·활·지팡이 등 무기 프리팹을 자식 GameObject로 붙이고
+  해당 `SpriteRenderer`를 관리하는 `EntityEquipment` 컴포넌트를 추가하면 장비 시각화 가능.
+  `UnitDataSO`에 `weaponPrefab` 필드를 추가하면 데이터 기반 교체도 가능.
 
----
+- **무기 별도 Animator 제어**
+  자식 무기 GameObject에 독립 `Animator`를 부착하고,
+  `EntityAnimator.PlayAttackAsync()` 호출 시 캐릭터 Animator와 무기 Animator를 동시에 제어하면
+  칼 휘두르기, 활시위 당기기 등 무기별 전용 애니메이션 구현 가능.
+  `ParallelAction`으로 타임라인에서 동시 재생도 지원됨.
 
-#### 3-1. 프리팹 만들기 (처음부터 따라하기)
+- **Spine 멀티 레이어를 통한 무기 레이어링**
+  `SpineAnimAdapter`에 Spine의 스킨/슬롯 전환 기능을 구현하면,
+  동일 스켈레톤 내에서 무기 부위만 독립 애니메이션 레이어로 제어 가능.
+  무기 교체도 스킨 스왑 한 줄로 처리 가능.
 
-**① 빈 GameObject 만들기**
-1. Unity 상단 메뉴 → **GameObject → Create Empty**
-2. 이름을 캐릭터 이름으로 변경 (예: `Warrior`, `Slime` 등)
+- **무기 끝 이펙트 소환 (WeaponTip 포인트)**
+  `EntityHitbox`에 무기 끝 위치를 나타내는 `WeaponTip` Transform 필드를 추가하면,
+  `SpawnEffectAction`이 무기 끝에서 정확히 이펙트(칼날 궤적, 발사체 등)를 소환 가능.
+  `EffectDataSO.offset`과 조합하면 정밀한 위치 보정도 가능.
 
-**② SpriteRenderer 추가하기** (캐릭터 그림 표시용)
-1. 방금 만든 GameObject를 클릭
-2. Inspector 창 → **Add Component** 버튼 클릭
-3. 검색창에 `SpriteRenderer` 입력 → 선택
-4. SpriteRenderer의 `Sprite` 항목에 캐릭터 이미지(스프라이트)를 드래그&드롭
-5. `Sorting Layer` / `Order in Layer`를 필요에 따라 조정 (캐릭터가 배경 위에 보이도록)
-
-**③ Animator 추가하기** (애니메이션 재생용)
-1. Inspector 창 → **Add Component** → `Animator` 검색 → 선택
-2. Animator Controller 에셋을 만들어야 합니다 (아래 3-2에서 설명)
-3. Animator 컴포넌트의 `Controller` 슬롯에 만든 AnimatorController 에셋을 드래그&드롭
-
-**④ Collider2D 추가하기** (피격 판정용)
-1. Inspector 창 → **Add Component** → `BoxCollider2D` 검색 → 선택
-   - (캐릭터 모양에 따라 `CircleCollider2D`나 `CapsuleCollider2D`도 가능)
-2. Collider의 크기(Size)와 위치(Offset)를 캐릭터 몸에 맞게 조정
-3. **Is Trigger** 체크박스는 꺼둔 상태 그대로 두세요
-
-**⑤ BattleEntity 스크립트 추가하기** (핵심!)
-1. Inspector 창 → **Add Component** → `BattleEntity` 검색 → 선택
-2. 이 스크립트 하나만 추가하면 됩니다!
-   - EntityStats, EntitySkills, EntityBuffs 등은 **절대 직접 추가하지 마세요**
-   - 게임 실행 시 `BattleEntity.Initialize()`가 전부 자동 생성합니다
-
-**⑥ (선택) HitPoint 자식 오브젝트 만들기** (이펙트 생성 위치)
-1. 만든 GameObject를 우클릭 → **Create Empty**
-2. 자식 오브젝트의 이름을 정확히 **`HitPoint`** 로 변경 (대소문자 주의!)
-3. HitPoint의 위치(Transform Position)를 캐릭터의 몸통 중앙 부근으로 이동
-   - 이 위치에 타격 이펙트, 데미지 숫자가 표시됩니다
-   - 없으면 Collider의 중심점을 자동으로 사용합니다
-
-**⑦ 프리팹으로 저장하기**
-1. Hierarchy 창의 GameObject를 **Project 창의 원하는 폴더로 드래그&드롭**
-   - 권장 경로: `Assets/Prefabs/Characters/` 또는 `Assets/Prefabs/Enemies/`
-2. 드래그하면 파란색 아이콘의 프리팹 파일(.prefab)이 생성됩니다
-3. Hierarchy에 남아있는 원본 GameObject는 삭제해도 됩니다
+- **장비 상태 변화 시각화 (파괴·강화)**
+  무기 SpriteRenderer의 스프라이트를 교체하거나 색상 플래시를 주면
+  장비 내구도 감소, 강화 성공 연출을 전투 중에도 표현 가능.
 
 ---
 
-#### 3-2. Animator Controller 만들기 (애니메이션 설정)
+### 4. 스킬 시스템 확장
 
-> Animator Controller는 "어떤 상황에서 어떤 애니메이션을 재생할지" 정해주는 설정 파일입니다.
+> `SkillDataSO`, `TimelineDirector`, `SkillActionData`, `ActionFactory` 기반
 
-**① AnimatorController 에셋 만들기**
-1. Project 창에서 우클릭 → **Create → Animator Controller**
-2. 이름을 `캐릭터이름_Controller`로 변경 (예: `Warrior_Controller`)
+- **다단 히트 스킬 (콤보)**
+  타임라인에 `ApplyDamageAction`을 `damageMultiplierPercent`를 낮게(예: 30%) 설정하여
+  여러 번 배치하면 3히트·5히트 콤보 스킬 구현 가능.
+  각 히트 사이에 `WaitAction`으로 타이밍 조절.
 
-**② 애니메이션 클립 준비하기**
-- 각 동작(대기, 공격, 피격, 사망)에 해당하는 스프라이트 시트 또는 애니메이션 클립이 필요합니다
-- 아직 애니메이션이 없다면 단일 스프라이트로 임시 클립을 만들어도 됩니다
+- **충전형 스킬 (차징)**
+  `WaitAction`과 충전 애니메이션을 타임라인 앞에 배치하고
+  이후 `ApplyDamageAction` + `SpawnEffectAction`을 연결하면
+  차징 → 폭발 순서의 강력한 스킬 연출 가능.
 
-**③ 상태(State) 추가하기** — 반드시 아래 4개 상태를 만들어야 합니다
+- **전체/단일/자신 타겟 자동 분기**
+  `SkillDataSO.targetType`(SingleEnemy/AllEnemies/SingleAlly/AllAllies/Self)에 따라
+  `ActionSelectPhase`와 `AIController.SelectTargets()`가 자동으로 대상을 결정하므로,
+  데이터 변경만으로 범위기·단체기·자힐 스킬 전환 가능.
 
-`AnimatorController`를 더블클릭하여 Animator 창을 열고:
-1. Animator 창에서 우클릭 → **Create State → Empty** → 이름을 `idle`로 변경
-2. 같은 방법으로 `attack`, `hit`, `die` 상태를 추가
-3. 각 상태를 클릭하고 Inspector에서 **Motion** 항목에 해당 애니메이션 클립을 연결
+- **원소 속성 상성 시스템**
+  `SkillDataSO.element`에 이미 6가지 원소가 정의되어 있으므로,
+  `DamageCalculator`에 속성 배율 테이블(예: 불 → 얼음 1.5배)을 추가하면
+  속성 상성 데미지 배율 시스템 구현 가능.
 
-| 상태 이름 (정확히 소문자로!) | 용도 | 비고 |
-|---------------------------|------|------|
-| `idle` | 대기 모션 | **기본 상태(주황색)**로 설정 - 우클릭 → Set as Layer Default State |
-| `attack` | 공격 모션 | 공격 후 idle로 돌아감 |
-| `hit` | 피격 모션 | 피격 후 idle로 돌아감 |
-| `die` | 사망 모션 | 재생 후 멈춤 (Loop Time 꺼야 함) |
+- **패시브·자동 발동 스킬**
+  `TurnStartPhase`에서 특정 조건(HP 50% 이하 등)을 검사해
+  `SkillExecutor.ExecuteSkill()`을 자동 호출하면 패시브 스킬 구현 가능.
+  `SkillDataSO`에 `isPassive` 플래그 추가로 관리.
 
-> **중요!** 상태 이름은 반드시 **소문자**(`idle`, `attack`, `hit`, `die`)로 만드세요.
-> `SpriteAnimAdapter`가 이 이름으로 애니메이션을 찾습니다.
-
-**④ Transition(전환) 설정하기**
-- 각 상태에서 코드로 직접 전환하므로, **Trigger 파라미터 기반 전환**을 쓰거나
-- 단순히 코드에서 `Animator.Play("상태이름")`으로 직접 재생합니다
-- 복잡한 Transition 설정은 필요 없습니다
-
-**⑤ idle 상태 루프 설정**
-1. idle에 연결된 애니메이션 클립을 선택
-2. Inspector에서 **Loop Time** ✅ 체크 (대기 모션은 반복 재생)
-3. die 클립은 **Loop Time** ❌ 해제 (사망 모션은 한 번만 재생)
+- **병렬 스킬 연출 (ParallelAction 활용)**
+  `SkillActionType.Parallel`이 이미 구현되어 있어,
+  이동·애니메이션·이펙트·카메라 흔들기를 동시에 실행하는
+  화려한 동시다발 연출을 타임라인에서 즉시 구성 가능.
 
 ---
 
-#### 3-3. 프리팹 완성 후 데이터 연결하기
+### 5. 버프 / 디버프 시스템 확장
 
-프리팹을 만들었으면 **UnitDataSO 에셋에 연결**해야 합니다:
-1. STEP 1에서 만든 UnitDataSO 에셋을 클릭
-2. Inspector에서 **Prefab** 슬롯에 방금 만든 프리팹을 드래그&드롭
-3. Skills 배열에 사용할 SkillDataSO 에셋들을 연결
+> `EntityBuffs`, `BuffData`, `EntityStats` 기반
 
-```
-[UnitDataSO 에셋 - Inspector 예시]
-┌──────────────────────────────────────┐
-│ Unit Name:    전사                     │
-│ Portrait:     [전사 초상화 스프라이트]    │
-│ Prefab:       [Warrior.prefab] ◀── 여기!│
-│                                        │
-│ Base Hp:      500                      │
-│ Base Mp:      100                      │
-│ Base Atk:     80                       │
-│ Base Def:     50                       │
-│ Base Spd:     30                       │
-│ Base Kd:      15    (크리티컬 확률 %)    │
-│ Base Kr:      50    (크리티컬 피해 %)    │
-│                                        │
-│ Skills:       [3개]                     │
-│   [0] SlashSkill                       │
-│   [1] PowerStrike                      │
-│   [2] DefenseUp                        │
-│                                        │
-│ Team:         Player                   │
-└──────────────────────────────────────┘
-```
+- **복합 버프 스택**
+  `EntityBuffs.AddBuff()`를 여러 번 호출하면 다수의 버프가 독립적으로 쌓이며,
+  `EntityStats`의 수정자가 누적 합산되므로,
+  `BuffName` 기반 카운트로 최대 스택 제한 시스템 구현 가능.
+
+- **다양한 상태이상 (마비·침묵·도발)**
+  `BuffData`에 `isStunned`, `isSilenced`, `isTaunted` 플래그를 추가하고,
+  `ActionSelectPhase`에서 해당 플래그를 검사해 행동 제한하면
+  마비(행동불능)·침묵(스킬 사용 불가)·도발(특정 대상만 공격) 구현 가능.
+
+- **지속 회복 / 재생 효과 (HoT)**
+  `BuffData.HpPerTurn > 0`이 이미 구현되어 있어,
+  회복 스킬 타임라인에 버프 적용 액션을 추가하는 것만으로
+  매 턴 HP가 회복되는 재생 효과 즉시 사용 가능.
+
+- **방어 자세 (방어력 버프)**
+  `ActionType.Defend`가 열거형에 정의되어 있으며,
+  `EntityStats.DefModifier`에 큰 수치의 버프를 1턴 적용하면
+  방어 자세(받는 데미지 크게 감소) 구현 가능.
+
+- **버프 전이 및 해제 스킬**
+  `EntityBuffs.ClearAll()`로 모든 버프를 제거하거나,
+  특정 `BuffName`을 가진 버프만 제거하는 메서드를 추가해
+  정화(클렌즈)·디스펠 스킬 구현 가능.
 
 ---
 
-#### 3-4. 프리팹이 게임에서 생성되는 과정 (이해용)
+### 6. 카메라 연출
 
-> 이 과정은 **전부 자동**이므로 여러분이 코드를 수정할 필요는 없습니다.
-> 하지만 문제가 생겼을 때 어디를 확인해야 하는지 알기 위해 흐름을 이해해두세요.
+> `BattleCameraController`, `CameraShaker`, `CameraShakeAction`, `CameraZoomAction` 기반
 
-```
-[배틀 시작 - 자동 실행 흐름]
+- **스킬 강도별 카메라 흔들림**
+  `CameraShakeAction.shakeIntensity` 값을 스킬별로 다르게 설정해
+  약한 평타는 약하게, 필살기는 강하게 흔들리도록
+  타임라인 데이터만 수정하면 즉시 적용 가능.
 
-1. BattleManager.StartBattle(stageData, playerParty) 호출
-       ↓
-2. EntityFactory.CreateEntity(unitData, team, position) 실행
-       ↓
-3. unitData.prefab을 Instantiate (프리팹 복사)
-   └→ 이때 SpriteRenderer, Animator, Collider2D가 함께 복사됨
-       ↓
-4. BattleEntity.Initialize(unitData, team) 자동 호출
-   ├→ EntityStats 생성    : HP=500, MP=100, ATK=80 ... (UnitDataSO 값 복사)
-   ├→ EntitySkills 생성   : 스킬 3개를 SkillRuntime으로 래핑 (쿨다운 추적용)
-   ├→ EntityBuffs 생성    : 빈 버프 목록으로 초기화
-   ├→ EntityHitbox 생성   : Collider2D + HitPoint 참조 저장
-   ├→ SpriteAnimAdapter 생성 : Animator 컴포넌트 래핑
-   └→ EntityAnimator 생성 : 애니메이션 상태머신 초기화
-       ↓
-5. 캐릭터가 idle 애니메이션을 재생하며 전투 위치에 배치됨
-   └→ 적(Enemy)이면 자동으로 좌우 반전 (왼쪽을 바라봄)
-```
+- **타겟 포커스 줌**
+  `CameraZoomAction`이 `BattleCameraController.ZoomToAsync(position, size, duration)`을 호출하므로,
+  보스 등장이나 필살기 연출 시 대상을 화면 중앙에 확대하는 연출 가능.
 
----
+- **히트 순간 클로즈업 → 자동 복귀**
+  타임라인에 `CameraZoomAction`(줌 인) → `ApplyDamageAction` → `CameraZoomAction`(복귀)을 배치하면
+  데미지 순간만 클로즈업되는 드라마틱한 연출 가능.
+  `BattleCameraController.ResetAsync()`로 자연스럽게 원위치 복귀.
 
-#### 3-5. 프리팹 최종 구조 요약
+- **보스 등장 전용 카메라 시퀀스**
+  `BattleIntroPhase`에서 카메라를 보스 위치로 빠르게 이동 → 홀드 → 복귀하는
+  비동기 시퀀스를 `UniTask`로 구성하면 보스 전투 시작 연출 가능.
 
-```
-[캐릭터 프리팹 - 최종 구조]
-WarriorPrefab (GameObject)
-│
-├── [컴포넌트] BattleEntity        ← 커스텀 스크립트 (1개만!)
-├── [컴포넌트] SpriteRenderer      ← 캐릭터 스프라이트 표시
-├── [컴포넌트] Animator            ← Controller에 idle/attack/hit/die 설정
-├── [컴포넌트] BoxCollider2D       ← 캐릭터 몸 크기에 맞게 조정
-│
-└── HitPoint (자식 GameObject)     ← (선택) 빈 오브젝트, 몸통 중앙에 배치
-    └── Transform만 있으면 됨
-```
-
-**프리팹에 추가하면 안 되는 것들** (BattleEntity.Initialize()가 코드에서 자동 생성):
-- ~~EntityStats~~ → `new EntityStats(unitData)` 로 자동 생성
-- ~~EntitySkills~~ → `new EntitySkills(skillArray)` 로 자동 생성
-- ~~EntityBuffs~~ → `new EntityBuffs(stats)` 로 자동 생성
-- ~~EntityHitbox~~ → `new EntityHitbox(collider, hitPoint)` 로 자동 생성
-- ~~EntityAnimator~~ → `new EntityAnimator(adapter, spriteRenderer)` 로 자동 생성
-- ~~SpriteAnimAdapter~~ → `new SpriteAnimAdapter(animator)` 로 자동 생성
+- **Perlin 노이즈 기반 자연스러운 흔들림**
+  `CameraShaker`가 이미 Perlin 노이즈와 감쇠 곡선으로 구현되어 있어,
+  반복 패턴 없는 자연스러운 카메라 진동이 즉시 가능.
 
 ---
 
-#### 3-6. 문제 해결 체크리스트
+### 7. UI / HUD 구현
 
-프리팹 관련 문제가 생기면 아래를 확인하세요:
+> `SkillSelectUI`, `DamageEventChannel`, `EventChannel` 시스템 기반
 
-| 증상 | 확인할 것 |
-|------|----------|
-| 캐릭터가 안 보임 | SpriteRenderer에 Sprite가 연결되어 있는지 확인 |
-| 캐릭터가 투명함 | SpriteRenderer의 Color 알파값이 255인지 확인 |
-| 애니메이션이 안 됨 | Animator에 Controller가 연결되어 있는지 확인 |
-| idle만 안 됨 | idle 상태가 Default State(주황색)로 설정되어 있는지 확인 |
-| 사망 후 다시 움직임 | die 애니메이션 클립의 Loop Time이 꺼져 있는지 확인 |
-| 이펙트 위치가 이상함 | HitPoint 자식 오브젝트의 위치(Transform)가 몸통 중앙인지 확인 |
-| 피격 판정이 안 됨 | Collider2D가 캐릭터 크기에 맞는지, 너무 작지 않은지 확인 |
-| 캐릭터가 안 생성됨 | UnitDataSO의 Prefab 슬롯에 프리팹이 연결되어 있는지 확인 |
-| "idle" 상태를 못 찾음 | Animator Controller의 상태 이름이 정확히 소문자(`idle`)인지 확인 |
+- **데미지 팝업 텍스트**
+  `DamageEventChannel`이 이미 데미지 이벤트를 발행하므로,
+  이 채널을 구독하는 `DamagePopupUI`를 만들어 `EntityHitbox.Top` 위치에 숫자를 팝업.
+  `TweenHelper.MoveToAsync()` + `FadeAsync()`로 떠오르며 사라지는 애니메이션 추가 가능.
 
----
+- **HP / MP 게이지 바**
+  `EntityStats.CurrentHp / MaxHp` 비율을 `Image.fillAmount`에 바인딩하는
+  `EntityHpBar` 컴포넌트를 추가하면 됨.
+  `DamageEventChannel` 구독으로 실시간 갱신.
 
-### STEP 4: 코드로 배틀 시작하기
+- **버프·디버프 아이콘 표시**
+  `EntityBuffs`의 버프 목록 변경 시 이벤트를 발행하고 UI에서 구독해
+  `BuffData.BuffName`에 해당하는 아이콘을 나열하면 됨.
+  남은 턴 수도 아이콘 위에 숫자로 표시 가능.
 
-```csharp
-public class GameManager : MonoBehaviour
-{
-    [SerializeField] private StageDataSO stageData;    // 스테이지 데이터 에셋
-    [SerializeField] private UnitDataSO[] playerParty; // 플레이어 파티 데이터 에셋
+- **턴 순서 표시 UI**
+  `TurnManager.GetActionOrder()`가 반환하는 엔티티 리스트를
+  `TurnChangedEventChannel` 구독 시 받아 순서대로 초상화를 나열하면
+  ATB 스타일의 턴 순서 UI 구현 가능.
 
-    void StartBattle()
-    {
-        var battleManager = FindObjectOfType<BattleManager>();
-        battleManager.StartBattle(stageData, playerParty);
-    }
-}
-```
+- **스킬 쿨다운 / MP 비용 표시**
+  `SkillSelectUI`에서 이미 사용 불가 버튼을 비활성화하고 있으므로,
+  버튼에 `SkillRuntime.CooldownRemaining` 텍스트와 `SkillDataSO.mpCost`를 표시하는
+  레이블만 추가하면 쿨다운·MP 정보 UI 완성.
 
-어디서든 BattleManager에 접근하려면:
-```csharp
-// ServiceLocator를 통한 전역 접근
-var battleManager = ServiceLocator.Get<BattleManager>();
-```
-
-ServiceLocator에 등록되는 서비스 (Awake에서 자동 등록):
-- `BattleManager`, `SoundManager`, `EffectManager`, `BattleCameraController`
-
-관련 파일: `Assets/Scripts/BattleSystem/Core/ServiceLocator.cs`
+- **전투 결과 보상 화면**
+  `ResultPhase`에서 `BattleEndEventChannel`을 발행하고,
+  `StageDataSO.goldReward`, `expReward`를 읽어 애니메이션으로 보상을 표시하는
+  결과 화면 UI 구현 가능.
 
 ---
 
-### STEP 5: 데미지 계산 이해하기
+### 8. AI 전투 지능 강화
 
-관련 파일: `Assets/Scripts/BattleSystem/Battle/DamageCalculator.cs` (static 클래스)
+> `AIController`, `EntityStats`, `EntityBuffs`, `EntitySkills` 기반
 
-```
-물리 공격: 데미지 = (위력/100) × ATK × (1 - DEF/(DEF+100))
-마법 공격: 데미지 = (위력/100) × ATK×0.8 × (1 - DEF×0.5/(DEF×0.5+100))
-회복:      회복량 = (위력/100) × ATK×0.5
+- **우선순위 기반 스킬 선택**
+  현재 랜덤 선택을 조건 점수 시스템으로 대체:
+  HP 30% 이하 → 회복기 우선, 버프 없으면 버프기 우선, 다수 적 → 범위기 우선.
+  상황에 맞는 스킬을 선택하는 전술 AI 구현 가능.
 
-크리티컬:
-  발동 확률 = 공격자의 KD %
-  피해 배율 = 1.5 + 공격자의 KR/100
+- **어그로(타겟팅) 로직**
+  `BattleEntity`에 `Aggro` 수치 필드를 추가하고,
+  데미지를 줄 때마다 증가시켜 `AIController.SelectTargets()`에서
+  가장 어그로가 높은 유닛을 우선 공격하는 탱커 역할 구현 가능.
 
-최종 데미지: ±10% 랜덤 변동
-```
+- **페이즈 전환 보스 AI**
+  보스 `CurrentHp`를 감시하다가 특정 임계값 이하가 되면
+  `AIController`의 스킬 풀을 교체하거나 배율을 증가시켜
+  HP 페이즈 전환 보스 행동 패턴 구현 가능.
 
-호출 방법 (인스턴스 생성 불필요):
-```csharp
-DamageResult result = DamageCalculator.Calculate(attackerStats, defenderStats, skillData);
-```
-
----
-
-### STEP 6: 스킬 연출(Timeline) 만들기
-
-SkillDataSO 에셋의 Timeline 배열에 연출 순서를 정의합니다:
-
-```
-[슬래시 스킬 예시]
-1. PlayAnimation     → 공격 모션 시작
-2. MoveToTarget      → 적에게 이동
-3. ApplyDamage       → 데미지 적용
-4. SpawnEffect       → 타격 이펙트 생성
-5. PlaySound         → 효과음 재생
-6. CameraShake       → 화면 흔들기
-7. ReturnToPosition  → 원위치로 복귀
-```
-
-> **Parallel** 액션을 사용하면 여러 동작을 동시에 실행할 수 있습니다.
-
-Timeline이 비어있으면 SkillExecutor가 기본 연출을 실행합니다:
-공격 애니메이션 → 데미지 적용 → 피격 애니메이션
+- **협동 AI (적 간 시너지)**
+  `AIController.DecideAction()`에서 아군 상태를 확인해
+  아군에 디버프가 있으면 해제기를, 아군 HP가 낮으면 회복기를 우선 선택하는
+  팀플레이 AI 구현 가능.
 
 ---
 
-### STEP 7: 이벤트 시스템 활용하기
+### 9. 데이터 드리븐 콘텐츠 제작
 
-관련 폴더: `Assets/Scripts/BattleSystem/Core/EventBus/`
+> `ScriptableObject` 시스템 (UnitDataSO, SkillDataSO, EffectDataSO, StageDataSO) 기반
 
-이벤트 채널은 ScriptableObject 기반으로, 컴포넌트 간 직접 참조 없이 통신합니다:
+- **새 캐릭터 / 적 추가**
+  `UnitDataSO`를 새로 생성하고 스탯과 스킬 배열만 채우면
+  코드 수정 없이 새 유닛 추가 가능. `EntityFactory`가 자동으로 처리.
 
-```csharp
-// 데미지 발생 시 UI 업데이트 예시
-public class MyCustomUI : MonoBehaviour
-{
-    // 인스펙터에서 DamageEventChannel 에셋을 드래그&드롭으로 연결
-    [SerializeField] private DamageEventChannel onDamage;
+- **새 스킬 추가**
+  `SkillDataSO`를 생성하고 타임라인 배열에 `SkillActionData`를 나열하면
+  완전히 새로운 스킬 구성 가능. 코드 추가 없이 에디터만으로 작업 완료.
 
-    void OnEnable()
-    {
-        onDamage.OnEventRaised += HandleDamage;  // 이벤트 구독
-    }
+- **스테이지(맵) 추가**
+  `StageDataSO`에 배경·BGM·적 스폰 정보만 설정하면
+  새 전투 스테이지 즉시 추가 가능.
 
-    void OnDisable()
-    {
-        onDamage.OnEventRaised -= HandleDamage;  // 이벤트 해제
-    }
-
-    void HandleDamage(DamagePayload payload)
-    {
-        // payload.Target   — 맞은 캐릭터
-        // payload.Damage   — 데미지 양
-        // payload.IsCritical — 크리티컬 여부
-    }
-}
-```
-
-사용 가능한 이벤트 채널:
-
-| 이벤트 채널 | 발생 시점 | Payload 내용 |
-|------------|----------|-------------|
-| BattleStartEventChannel | 배틀 시작 | StageName |
-| BattleEndEventChannel | 배틀 종료 | IsVictory |
-| TurnChangedEventChannel | 턴 변경 | TurnNumber, CurrentEntity |
-| DamageEventChannel | 데미지 발생 | Target, Damage, IsCritical, HitPosition |
-| UnitDiedEventChannel | 유닛 사망 | Unit |
-| PlaySFXEventChannel | 효과음 재생 | Clip, Volume |
-| CameraShakeEventChannel | 화면 흔들기 | Intensity, Duration |
-| SpawnEffectEventChannel | 이펙트 생성 | Prefab, Position, Duration |
+- **레벨 기반 스탯 스케일링**
+  `StageDataSO.EnemySpawnData.level` 필드가 이미 존재하므로,
+  `EntityFactory`에서 레벨에 따라 스탯에 배율을 곱하는 로직을 추가하면
+  레벨 기반 적 강도 조절 시스템 구현 가능.
 
 ---
 
-## 자주 겪는 문제와 해결법
+### 10. 전투 규칙 및 메커니즘 확장
 
-| 문제 | 원인 | 해결법 |
-|------|------|--------|
-| 배틀이 시작 안 됨 | StageDataSO 미설정 | BattleManager 인스펙터에서 StageData 연결 확인 |
-| 데미지가 0 | DEF가 너무 높거나 ATK가 0 | UnitDataSO 에셋의 스탯 값 확인 |
-| 스킬 사용 불가 | MP 부족 또는 쿨다운 중 | Console 로그에서 EntitySkills 관련 메시지 확인 |
-| 애니메이션 없음 | 프리팹에 Animator 컴포넌트 누락 | 프리팹에 Animator + AnimatorController 추가 |
-| 이벤트가 안 날아감 | EventChannel 에셋 미연결 | 인스펙터에서 [SerializeField] 이벤트 채널 슬롯 확인 |
-| AI가 행동 안 함 | BattleManager 초기화 실패 | Console에서 BattleManager.Awake() 오류 확인 |
-| 캐릭터가 안 나옴 | UnitDataSO의 Prefab 미설정 | UnitDataSO 에셋에서 프리팹 연결 확인 |
+> `BattleStateMachine`, `TurnManager`, `ActionQueue`, `DamageCalculator` 기반
 
----
+- **도주 시스템**
+  `ActionType.Flee`가 이미 열거형에 존재하므로,
+  `ExecutePhase`에서 Flee 액션을 처리해 성공 확률 계산 후 `BattleResult.Flee`로 전환하는
+  로직만 추가하면 도주 구현 완료.
 
-## 핵심 파일 목록
+- **선제공격 / 기습 시스템**
+  `BattleIntroPhase`에서 플레이어 SPD 합계와 적 SPD 합계를 비교해
+  선제공격 여부를 결정하고, 첫 턴 `ActionQueue`에 플레이어 액션을 자동으로 채워 넣으면
+  기습 / 선제공격 시스템 구현 가능.
 
-| 역할 | 파일 경로 | 유형 |
-|------|----------|------|
-| 배틀 전체 관리 | `Assets/Scripts/BattleSystem/Battle/BattleManager.cs` | MonoBehaviour |
-| 상태 머신 | `Assets/Scripts/BattleSystem/Battle/BattleStateMachine.cs` | 일반 클래스 |
-| 턴 관리 | `Assets/Scripts/BattleSystem/Battle/TurnManager.cs` | 일반 클래스 |
-| 데미지 계산 | `Assets/Scripts/BattleSystem/Battle/DamageCalculator.cs` | static 클래스 |
-| AI 행동 | `Assets/Scripts/BattleSystem/Battle/AIController.cs` | 일반 클래스 |
-| 캐릭터 엔티티 | `Assets/Scripts/BattleSystem/Entity/BattleEntity.cs` | MonoBehaviour (프리팹) |
-| 엔티티 생성 | `Assets/Scripts/BattleSystem/Entity/EntityFactory.cs` | 일반 클래스 |
-| 스킬 실행 | `Assets/Scripts/BattleSystem/Skill/SkillExecutor.cs` | 일반 클래스 |
-| 캐릭터 데이터 | `Assets/Scripts/BattleSystem/Data/UnitDataSO.cs` | ScriptableObject |
-| 스킬 데이터 | `Assets/Scripts/BattleSystem/Data/SkillDataSO.cs` | ScriptableObject |
-| 스테이지 데이터 | `Assets/Scripts/BattleSystem/Data/StageDataSO.cs` | ScriptableObject |
-| 서비스 로케이터 | `Assets/Scripts/BattleSystem/Core/ServiceLocator.cs` | static 클래스 |
-| 이벤트 채널 | `Assets/Scripts/BattleSystem/Core/EventBus/` | ScriptableObject |
-| 배틀 씬 | `Assets/Scenes/Batttle/BattleTest.unity` | Unity 씬 |
+- **속도 조작 전술 (행동 순서 역전)**
+  `TurnManager.GetActionOrder()`는 `EffectiveSpd`로 정렬하므로,
+  속도 버프/디버프가 즉시 턴 순서에 반영됨.
+  이를 활용한 속도 조작 스킬로 전술적 깊이 추가 가능.
+
+- **연속 행동 (더블 어택)**
+  특정 조건 충족 시 `ActionQueue`에 동일 엔티티의 액션을 두 번 삽입하면
+  같은 턴에 두 번 행동하는 연속 행동 시스템 구현 가능.
+
+- **방어 / 막기 메커니즘**
+  `ActionType.Defend` 선택 시 `EntityStats.DefModifier`를 크게 올리고
+  다음 턴 `TurnStartPhase`에서 제거하는 방어 자세 사이클 구현 가능.
 
 ---
 
-## 작동 확인 체크리스트
+### 11. 사운드 시스템
 
-- [ ] `BattleTest.unity` 씬 열고 Play 버튼 클릭
-- [ ] Console 창에 ServiceLocator 등록 관련 오류 없음
-- [ ] EntityFactory가 BattleEntity 프리팹을 스폰함
-- [ ] 스킬 선택 UI(SkillSelectUI)가 나타남
-- [ ] 스킬 선택 시 애니메이션과 데미지 발생
-- [ ] 모든 몬스터 사망 시 BattleEndEventChannel 발생
-- [ ] Unity Console 창에 오류 없음
+> `SoundManager`, `PlaySoundAction`, `SoundEvents` 이벤트 채널 기반
+
+- **스킬별 효과음**
+  `SkillActionData.soundClip`에 AudioClip을 할당하면
+  타임라인 실행 중 `PlaySoundAction`이 `SoundManager`를 통해 자동 재생.
+  다단 히트 스킬의 각 히트마다 다른 사운드도 가능.
+
+- **BGM 전투 / 보스 전환**
+  `BattleStartEventChannel` 구독 시 `StageDataSO.bgm`을 재생하고,
+  보스 HP 임계값 이벤트 발생 시 별도 BGM으로 크로스페이드하는
+  `BattleBGMController` 구현 가능.
+
+- **3D 위치 기반 사운드**
+  `PlaySoundAction`이 `AudioSource.PlayClipAtPoint(clip, position)`을 사용하므로,
+  효과음이 화면 내 위치에서 재생되어 스테레오 공간감 제공.
+
+- **피격·사망 리액션 사운드**
+  `UnitDiedEventChannel`, `DamageEventChannel`을 구독해
+  사망·피격 전용 사운드를 자동 재생하는 컴포넌트 추가 가능.
+
+---
+
+### 12. 이벤트 / 트리거 시스템
+
+> `EventChannel`, 각종 이벤트 채널 기반
+
+- **전투 중 이벤트 컷씬 트리거**
+  `UnitDiedEventChannel`, `TurnChangedEventChannel` 등을 구독해
+  특정 조건(보스 사망, N턴 경과) 시 `BattleStateMachine`을 일시 정지하고
+  컷씬 시퀀스를 삽입하는 연출 트리거 구현 가능.
+
+- **업적 / 미션 추적**
+  모든 전투 이벤트가 채널로 발행되므로, 채널 구독만으로
+  "X턴 이내 클리어", "HP 풀로 클리어" 등 미션 달성 여부를 추적하는
+  `MissionTracker` 컴포넌트 구현 가능.
+
+- **전투 로그 기록**
+  `ActionQueue`에 쌓이는 `BattleAction`(Caster, Targets, Skill, Type) 데이터를
+  직렬화해 저장하면 전투 로그 및 리플레이 시스템 구현 기반 마련 가능.
+
+---
+
+## ❌ 현재 시스템으로 구현 불가능한 기능
+
+---
+
+### 불가 1. 실시간(Real-time) 전투
+
+**이유:**
+현재 시스템 전체가 **턴 기반(Turn-based)** 설계임.
+`BattleStateMachine`은 Phase 단위로 동작하고, `ActionQueue`는 FIFO 순차 처리 구조임.
+실시간 입력 처리, 물리 기반 충돌 판정, 프레임 단위 행동 캔슬 등의 구조가 전혀 없음.
+구현 시 코어 아키텍처 전면 재설계 필요.
+
+---
+
+### 불가 2. 온라인 멀티플레이어 / 네트워크 동기화
+
+**이유:**
+네트워크 레이어(Photon, Mirror, Netcode 등)가 전혀 없음.
+`ServiceLocator`, `BattleManager`, `ActionQueue`가 모두 단일 클라이언트 싱글톤 구조임.
+원격 플레이어 입력을 `ActionQueue`에 주입하거나
+게임 상태를 직렬화·동기화하는 구조가 없어 멀티플레이어 구현 불가.
+완전히 새로운 네트워크 동기화 레이어 필요.
+
+---
+
+### 불가 3. 물리 기반 지형 전투 (Terrain Interaction)
+
+**이유:**
+전투 공간이 `EntityHitbox` 좌표와 `StageDataSO.playerSlots` 배치 위치 데이터로만 구성됨.
+지형 충돌, 높낮이 차이, 장애물 회피, 넉백(지형 밖으로 밀려남) 등
+물리 기반 상호작용을 위한 콜라이더 시스템·NavMesh·지형 데이터가 없음.
+이동은 `TweenHelper.MoveToAsync()`의 단순 선형 보간만 지원.
+
+---
+
+### 불가 4. 3D 렌더링 및 입체 카메라 연출
+
+**이유:**
+모든 시각 요소가 2D 스프라이트 기반(`SpriteRenderer`, `SpriteAnimAdapter`)으로 설계됨.
+`BattleCameraController`는 2D 직교(Orthographic) 카메라를 전제로
+Ortho Size와 2D 위치만 제어함.
+3D 메시, 원근(Perspective) 카메라, 3D 셰이더, 깊이 기반 연출은
+렌더링 파이프라인과 카메라 시스템을 전면 교체하지 않는 한 구현 불가.
+
+---
+
+*이 문서는 `Assets/Scripts/BattleSystem/` 코드베이스 전체 분석을 기반으로 작성되었습니다.*
