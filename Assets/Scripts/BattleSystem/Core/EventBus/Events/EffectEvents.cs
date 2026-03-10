@@ -12,6 +12,4 @@ namespace TxRpg.Core.Events
         public Transform Parent;
     }
 
-    [CreateAssetMenu(menuName = "TxRpg/Events/Spawn Effect Channel")]
-    public class SpawnEffectEventChannel : EventChannel<SpawnEffectPayload> { }
 }

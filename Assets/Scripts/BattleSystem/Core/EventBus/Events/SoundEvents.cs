@@ -23,12 +23,4 @@ namespace TxRpg.Core.Events
         public float FadeDuration;
     }
 
-    [CreateAssetMenu(menuName = "TxRpg/Events/Play SFX Channel")]
-    public class PlaySFXEventChannel : EventChannel<PlaySFXPayload> { }
-
-    [CreateAssetMenu(menuName = "TxRpg/Events/Play BGM Channel")]
-    public class PlayBGMEventChannel : EventChannel<PlayBGMPayload> { }
-
-    [CreateAssetMenu(menuName = "TxRpg/Events/Stop BGM Channel")]
-    public class StopBGMEventChannel : EventChannel<StopBGMPayload> { }
 }
