@@ -9,11 +9,6 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-<<<<<<< HEAD:Assets/EventChannel/BattleCameraController/Camera Zoom Event Channel.asset
-  m_Script: {fileID: 11500000, guid: 502b29e8caff15548a9ef99fb0a53a1a, type: 3}
-  m_Name: Camera Zoom Event Channel
-=======
-  m_Script: {fileID: 0}
+  m_Script: {fileID: 11500000, guid: 384959f3b8a38d8459475ab61cc61721, type: 3}
   m_Name: New Camera Zoom Event Channel
->>>>>>> parent of 7edcb67 (아하핳 오류받아랏!!):Assets/EventChannel/BattleCameraController/New Camera Zoom Event Channel.asset
   m_EditorClassIdentifier: Assembly-CSharp:TxRpg.Core.Events:CameraZoomEventChannel
