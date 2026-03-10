@@ -27,6 +27,10 @@ namespace TxRpg.Battle.Phases
                 // 캐스터가 죽었으면 스킵
                 if (!action.Caster.IsAlive) continue;
 
+                // 도망 또는 아이템(미구현)은 스킵
+                if (action.Type == Data.ActionType.Flee || action.Type == Data.ActionType.Item)
+                    continue;
+
                 // 타겟 필터링 (죽은 대상 제거)
                 var aliveTargets = action.Targets.Where(t => t.IsAlive).ToList();
                 if (aliveTargets.Count == 0) continue;
