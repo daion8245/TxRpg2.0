@@ -2,8 +2,6 @@ using UnityEngine;
 
 namespace TxRpg.Core.Events
 {
-    #region Payloads
-
     [System.Serializable]
     public struct BattleStartPayload
     {
@@ -37,25 +35,4 @@ namespace TxRpg.Core.Events
         public bool IsCritical;
         public Vector2 HitPosition;
     }
-
-    #endregion
-
-    #region Concrete Event Channels
-
-    [CreateAssetMenu(menuName = "TxRpg/Events/Battle Start Channel")]
-    public class BattleStartEventChannel : EventChannel<BattleStartPayload> { }
-
-    [CreateAssetMenu(menuName = "TxRpg/Events/Battle End Channel")]
-    public class BattleEndEventChannel : EventChannel<BattleEndPayload> { }
-
-    [CreateAssetMenu(menuName = "TxRpg/Events/Turn Changed Channel")]
-    public class TurnChangedEventChannel : EventChannel<TurnChangedPayload> { }
-
-    [CreateAssetMenu(menuName = "TxRpg/Events/Unit Died Channel")]
-    public class UnitDiedEventChannel : EventChannel<UnitDiedPayload> { }
-
-    [CreateAssetMenu(menuName = "TxRpg/Events/Damage Channel")]
-    public class DamageEventChannel : EventChannel<DamagePayload> { }
-
-    #endregion
 }
