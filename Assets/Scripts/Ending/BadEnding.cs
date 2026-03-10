@@ -23,6 +23,7 @@ public class BadEnding : MonoBehaviour
 
     void Btn_Exit()
     {
+        // 빌드, 에디터 강제 종료
         Application.Quit();
         UnityEditor.EditorApplication.isPlaying = false;
     }
