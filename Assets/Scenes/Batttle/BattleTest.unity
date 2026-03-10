@@ -2289,8 +2289,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c1b8cdedff0cfd542a449f46e8715084, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TxRpg.UI.BattleHUD
-  turnChangedChannel: {fileID: 0}
-  damageChannel: {fileID: 0}
+  turnChangedChannel: {fileID: 11400000, guid: 08c2e23f0c5f31e4d89cc9d05aa5e97f, type: 2}
+  damageChannel: {fileID: 11400000, guid: 5db187e40942251448055fd30436ce21, type: 2}
   turnText: {fileID: 0}
   playerHpBarRoot: {fileID: 0}
   hpBarPrefab: {fileID: 0}
