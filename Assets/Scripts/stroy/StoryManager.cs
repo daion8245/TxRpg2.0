@@ -16,7 +16,7 @@ public class StoryManager : MonoBehaviour
     Button SkipBtn;
 
     // 스토리 줄들을 배열로 저장
-    public string[] stroyLines =
+    string[] stroyLines =
     {
         "플레이어는 기억을 잃은 채 눈을 뜬다.",
         "플레이어 : 여기가어디지...?",
@@ -55,7 +55,7 @@ public class StoryManager : MonoBehaviour
         }
     }
 
-    public void NextLine()
+    void NextLine()
     {
         // 다음 줄로 이동
         index++;
@@ -71,7 +71,7 @@ public class StoryManager : MonoBehaviour
         }
     }
 
-    public void SkipStory()
+    void SkipStory()
     {
         // 스토리 건너뛰기
         StartGame();

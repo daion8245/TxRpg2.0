@@ -1046,8 +1046,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 12b4973e1e9d0f345a5093591bdf5e56, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BadEnding
-  Btn_Again: {fileID: 1739182720}
-  Btn_Exit: {fileID: 487058401}
+  AgainBtn: {fileID: 1739182720}
+  ExitBtn: {fileID: 487058401}
 --- !u!1 &2123992657
 GameObject:
   m_ObjectHideFlags: 0
