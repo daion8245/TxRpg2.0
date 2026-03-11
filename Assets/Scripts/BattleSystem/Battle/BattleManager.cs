@@ -28,6 +28,7 @@ namespace TxRpg.Battle
         public AIController AI { get; private set; }
         public SkillExecutor SkillExecutor { get; set; }
         public SkillSelectUI SkillSelectUI { get; set; }
+        public BattleCommandUI BattleCommandUI { get; set; }
 
         // 엔티티
         public List<BattleEntity> Players { get; private set; } = new();
@@ -108,6 +109,12 @@ namespace TxRpg.Battle
             }
 
             return false;
+        }
+
+        public void SetFlee()
+        {
+            IsBattleOver = true;
+            Result = BattleResult.Flee;
         }
 
         public void RaiseBattleStart()
