@@ -28,10 +28,7 @@ public class CreditMgr : MonoBehaviour
         startY = creditText.anchoredPosition.y;
 
         // 스킵 버튼
-        skipButton.onClick.AddListener(() =>
-        {
-            SceneManager.LoadScene("Title");
-        });
+        skipButton.onClick.AddListener(() => SceneManager.LoadScene("Title"));
     }
 
     void Update()

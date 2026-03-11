@@ -42,7 +42,7 @@ public class StoryManager : MonoBehaviour
 
         // 버튼 클릭 이벤트 연결
         NextBtn.onClick.AddListener(NextLine);
-        SkipBtn.onClick.AddListener(SkipStory);
+        SkipBtn.onClick.AddListener(() => SceneManager.LoadScene("Village_01"));
     }
 
     void Update()

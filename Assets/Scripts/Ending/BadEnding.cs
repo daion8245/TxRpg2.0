@@ -11,14 +11,8 @@ public class BadEnding : MonoBehaviour
 
     private void Start()
     {
-        AgainBtn.onClick.AddListener(Btn_Again);
+        AgainBtn.onClick.AddListener(() => SceneManager.LoadScene("Title"));
         ExitBtn.onClick.AddListener(Btn_Exit);
-    }
-
-    void Btn_Again()
-    {
-        // 다시하기 버튼을 눌렀을떄 처음부터(타이틀)로 이동
-        SceneManager.LoadScene("Title");
     }
 
     void Btn_Exit()
