@@ -25,7 +25,7 @@ public class TutorialsMgr : MonoBehaviour
         TutorialTxt.text = TutorialsLines[index];
 
         NextBtn.onClick.AddListener(Next);
-        SkipBtn.onClick.AddListener(SkipTutorial);
+        SkipBtn.onClick.AddListener(() => SceneManager.LoadScene("Title"));
     }
 
     void Update()
@@ -52,17 +52,5 @@ public class TutorialsMgr : MonoBehaviour
             // 튜토리얼이 끝났을때 타이틀씬으로 이동
             SceneManager.LoadScene("Title");
         }
-    }
-
-    public void SkipTutorial()
-    {
-        // 튜토리얼 스킵
-        EndTutorial();
-    }
-
-    void EndTutorial()
-    {
-        // 타이틀 씬으로 이동
-        SceneManager.LoadScene("Title");
     }
 }
