@@ -9,6 +9,7 @@ public class SettingMgr : MonoBehaviour
 {
     [SerializeField] GameObject SettingPanel; // 설정창 패널
     [SerializeField] GameObject ClosedPanel;  // 바깥 클릭 감지 패널
+    [SerializeField] Button SettingBtn;  // 세팅 버튼
 
     [SerializeField] Button CommonBtn;   // 일반 설정창 버튼
     [SerializeField] GameObject CommonPanel;   // 일반 설정창 패널
@@ -130,6 +131,9 @@ public class SettingMgr : MonoBehaviour
         SoundPanel.SetActive(false);
         ManipulationPanel.SetActive(false);
         MePanel.SetActive(false);
+
+        // 세팅 버튼을 눌럿을때 세팅 패널 열기
+        SettingBtn.onClick.AddListener(() => SettingPanel.SetActive(true));
     }
 
     void CloseSetting()
