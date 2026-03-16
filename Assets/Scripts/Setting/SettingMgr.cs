@@ -7,23 +7,23 @@ using System;
 
 public class SettingMgr : MonoBehaviour
 {
-    [SerializeField] GameObject SettingPanel; // 설정창 패널
-    [SerializeField] GameObject ClosedPanel;  // 바깥 클릭 감지 패널
+    [SerializeField] GameObject SettingPanel;       // 설정창 패널
+    [SerializeField] GameObject ClosedPanel;        // 바깥 클릭 감지 패널
 
-    [SerializeField] Button CommonBtn;   // 일반 설정창 버튼
-    [SerializeField] GameObject CommonPanel;   // 일반 설정창 패널
+    [SerializeField] Button CommonBtn;              // 일반 설정창 버튼
+    [SerializeField] GameObject CommonPanel;        // 일반 설정창 패널
 
-    [SerializeField] Button GraphicsBtn;  // 그래픽 설정창 버튼
-    [SerializeField] GameObject GraphicsPanel;  // 그래픽 설정창 패널
+    [SerializeField] Button GraphicsBtn;            // 그래픽 설정창 버튼
+    [SerializeField] GameObject GraphicsPanel;      // 그래픽 설정창 패널
 
-    [SerializeField] Button SoundBtn;   // 사운드 설정창 버튼
-    [SerializeField] GameObject SoundPanel;  // 사운드 설정창 패널
+    [SerializeField] Button SoundBtn;               // 사운드 설정창 버튼
+    [SerializeField] GameObject SoundPanel;         // 사운드 설정창 패널
 
-    [SerializeField] Button ManipulationBtn;  // 조작 설정창 버튼
+    [SerializeField] Button ManipulationBtn;        // 조작 설정창 버튼
     [SerializeField] GameObject ManipulationPanel;  // 조작 설정창 패널
 
-    [SerializeField] Button MeBtn;   // 계정 설정창 버튼
-    [SerializeField] GameObject MePanel;  // 계정 설정창 패널
+    [SerializeField] Button MeBtn;                  // 계정 설정창 버튼
+    [SerializeField] GameObject MePanel;            // 계정 설정창 패널
 
     void Update()
     {
