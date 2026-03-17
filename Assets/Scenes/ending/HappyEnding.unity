@@ -198,7 +198,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &859830007
+--- !u!1 &628744784
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -206,23 +206,23 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 859830008}
-  - component: {fileID: 859830010}
-  - component: {fileID: 859830009}
+  - component: {fileID: 628744785}
+  - component: {fileID: 628744786}
+  - component: {fileID: 628744787}
   m_Layer: 5
-  m_Name: Txt_Ending
+  m_Name: TMPTxt_HappyEnding
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!224 &859830008
+--- !u!224 &628744785
 RectTransform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 859830007}
+  m_GameObject: {fileID: 628744784}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
@@ -235,18 +235,26 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 1900, y: 1000}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &859830009
+--- !u!222 &628744786
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 628744784}
+  m_CullTransparentMesh: 1
+--- !u!114 &628744787
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 859830007}
+  m_GameObject: {fileID: 628744784}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: Unity.TextMeshPro::TMPro.TextMeshProUGUI
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
@@ -255,31 +263,78 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_FontData:
-    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
-    m_FontSize: 80
-    m_FontStyle: 0
-    m_BestFit: 0
-    m_MinSize: 8
-    m_MaxSize: 80
-    m_Alignment: 4
-    m_AlignByGeometry: 0
-    m_RichText: 1
-    m_HorizontalOverflow: 0
-    m_VerticalOverflow: 0
-    m_LineSpacing: 1
-  m_Text: "99\uCE35 \uBCF4\uC2A4\uB97C \uC4F0\uB7EC\uB728\uB9AC\uB294 \uC21C\uAC04\r\n\uAE30\uC5B5\uC774
-    \uC804\uBD80 \uB3CC\uC544\uC628\uB2E4.\r\n\r\n\uD50C\uB808\uC774\uC5B4 : \uC5B4...
-    \uC774\uAC8C \uBB50\uC9C0....\r\n\r\nText RPG 1.0\r\n\r\n1.0\uC5D0\uC11C \uD50C\uB808\uC774\uC5B4\uB294\r\n10\uCE35
-    \uC218\uD638\uC2E0\uC744 \uC8FD\uC600\uB2E4."
---- !u!222 &859830010
-CanvasRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 859830007}
-  m_CullTransparentMesh: 1
+  m_text: Happy Ending
+  m_isRightToLeft: 0
+  m_fontAsset: {fileID: 11400000, guid: dbb6ba912d2690845b0b2e6c7f1d573f, type: 2}
+  m_sharedMaterial: {fileID: 1634901006894423683, guid: dbb6ba912d2690845b0b2e6c7f1d573f, type: 2}
+  m_fontSharedMaterials: []
+  m_fontMaterial: {fileID: 0}
+  m_fontMaterials: []
+  m_fontColor32:
+    serializedVersion: 2
+    rgba: 4294967295
+  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
+  m_enableVertexGradient: 0
+  m_colorMode: 3
+  m_fontColorGradient:
+    topLeft: {r: 1, g: 1, b: 1, a: 1}
+    topRight: {r: 1, g: 1, b: 1, a: 1}
+    bottomLeft: {r: 1, g: 1, b: 1, a: 1}
+    bottomRight: {r: 1, g: 1, b: 1, a: 1}
+  m_fontColorGradientPreset: {fileID: 0}
+  m_spriteAsset: {fileID: 0}
+  m_tintAllSprites: 0
+  m_StyleSheet: {fileID: 0}
+  m_TextStyleHashCode: -1183493901
+  m_overrideHtmlColors: 0
+  m_faceColor:
+    serializedVersion: 2
+    rgba: 4294967295
+  m_fontSize: 60
+  m_fontSizeBase: 60
+  m_fontWeight: 400
+  m_enableAutoSizing: 0
+  m_fontSizeMin: 18
+  m_fontSizeMax: 72
+  m_fontStyle: 0
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 512
+  m_textAlignment: 65535
+  m_characterSpacing: 0
+  m_characterHorizontalScale: 1
+  m_wordSpacing: 0
+  m_lineSpacing: 0
+  m_lineSpacingMax: 0
+  m_paragraphSpacing: 0
+  m_charWidthMaxAdj: 0
+  m_TextWrappingMode: 1
+  m_wordWrappingRatios: 0.4
+  m_overflowMode: 0
+  m_linkedTextComponent: {fileID: 0}
+  parentLinkedComponent: {fileID: 0}
+  m_enableKerning: 0
+  m_ActiveFontFeatures: 6e72656b
+  m_enableExtraPadding: 0
+  checkPaddingRequired: 0
+  m_isRichText: 1
+  m_EmojiFallbackSupport: 1
+  m_parseCtrlCharacters: 1
+  m_isOrthographic: 1
+  m_isCullingEnabled: 0
+  m_horizontalMapping: 0
+  m_verticalMapping: 0
+  m_uvLineOffset: 0
+  m_geometrySortingOrder: 0
+  m_IsTextObjectScaleStatic: 0
+  m_VertexBufferAutoSizeReduction: 0
+  m_useMaxVisibleDescender: 1
+  m_pageToDisplay: 1
+  m_margin: {x: 0, y: 0, z: 0, w: 0}
+  m_isUsingLegacyAnimationComponent: 0
+  m_isVolumetricText: 0
+  m_hasFontAssetChanged: 0
+  m_baseMaterial: {fileID: 0}
+  m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
 --- !u!1 &916457484
 GameObject:
   m_ObjectHideFlags: 0
@@ -395,8 +450,32 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb6dd9e2457d6544990767a9cd30d904, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HappyEnding
-  NextBtn: {fileID: 0}
-  SkipBtn: {fileID: 0}
+  HappyEndingTxt: {fileID: 628744787}
+  NextBtn: {fileID: 1595691998}
+  SkipBtn: {fileID: 1887622059}
+  HappyEndingLines:
+  - "99\uCE35 \uBCF4\uC2A4\uB97C \uC4F0\uB7EC\uB728\uB9AC\uB294 \uC21C\uAC04 \uAE30\uC5B5\uC774
+    \uC804\uBD80 \uB3CC\uC544\uC628\uB2E4. "
+  - "\uD50C\uB808\uC774\uC5B4 : \uC5B4... \uC774\uAC8C \uBB50\uC9C0...."
+  - Text RPG 1.0
+  - "1.0\uC5D0\uC11C \uD50C\uB808\uC774\uC5B4\uB294 10\uCE35 \uC218\uD638\uC2E0\uC744
+    \uC8FD\uC600\uB2E4."
+  - "\uD50C\uB808\uC774\uC5B4 : \uADF8\uB798.. \uB9DE\uC9C0 \uB0B4\uAC00 \uADF8 \uC218\uD638\uC2E0\uC744
+    \uC8FD\uC600\uC9C0."
+  - "\uD50C\uB808\uC774\uC5B4 : \uADF8\uB9AC\uACE0 \uB09C \uD3C9\uD654\uB86D\uAC8C
+    \uC0B4\uC558\uC9C0..."
+  - "\uD50C\uB808\uC774\uC5B4 : \uADF8\uB9AC\uACE0....."
+  - "\uD50C\uB808\uC774\uC5B4 : \uB098\uB294 \uC774\uACF3\uC5D0 \uAE30\uC5B5\uC744
+    \uC783\uACE0 \uBC84\uB824\uC84C\uC9C0.. "
+  - "\uD50C\uB808\uC774\uC5B4 : \uC124\uB9C8..... 10\uCE35\uC758 \uC218\uD638\uC2E0\uC774
+    \uB9C8\uC9C0\uB9C9\uAE4C\uC9C0 \uC800\uC8FC\uB97C \uD55C\uAC74\uAC00..."
+  - "\uD50C\uB808\uC774\uC5B4 : \uC774\uC81C \uC0C1\uAD00\uC5C6\uC5B4 \uAE30\uC5B5\uC744
+    \uB418\uCC3E\uC558\uC73C\uB2C8"
+  - "\uD50C\uB808\uC774\uC5B4 : \uC774\uC81C \uB0B4 \uC9D1\uC73C\uB85C \uAC00\uC790"
+  - "\uB358\uC804\uC740 \uC548\uC815\uB41C\uB2E4. \\n \uD558\uC9C0\uB9CC \uC774 \uB358\uC804\uC774
+    \uC0AC\uB77C\uC9C0\uC9C0 \uC54A\uC558\uB2E4. \\n \uADF8 \uC774\uC720\uB294 \uBAA8\uB974\uC9C0\uB9CC
+    \uD50C\uB808\uC774\uC5B4\uB294 \uD3C9\uD654\uB97C \uB418\uCC3E\uC544\uC11C \uAE30\uBD84\uC774
+    \uC88B\uC544\uBCF4\uC600\uB2E4 "
 --- !u!1 &1473894304
 GameObject:
   m_ObjectHideFlags: 0
@@ -1080,7 +1159,7 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 859830008}
+  - {fileID: 628744785}
   - {fileID: 1595691997}
   - {fileID: 1887622058}
   m_Father: {fileID: 916457488}

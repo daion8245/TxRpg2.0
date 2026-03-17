@@ -38,7 +38,7 @@ public class TutorialsMgr : MonoBehaviour
         }
     }
 
-    public void Next()
+    void Next()
     {
         // 다음 줄로 이동
         index++;
