@@ -4,7 +4,7 @@
 PlayerSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 28
-  productGUID: 00000000000000000000000000000000
+  productGUID: 64c3f68d65ece1a43b6e4afed9b05e06
   AndroidProfiler: 0
   AndroidFilterTouchesWhenObscured: 0
   AndroidEnableSustainedPerformanceMode: 0
@@ -888,7 +888,7 @@ PlayerSettings:
   cloudProjectId: 812e5b22-dea4-42f9-adda-72bfa2202ae9
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
-  projectName: 
+  projectName: TextRpg2.0
   organizationId: kinghwan8864
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0
