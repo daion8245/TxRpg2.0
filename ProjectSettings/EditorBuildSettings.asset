@@ -6,27 +6,11 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/Title.unity
-    guid: 872dffc865d2c70408d77d74775b236e
+    path: Assets/Resources/2D_Pixel_Light/Scenes/Basic.unity
+    guid: bb356265201af4d40b05e21e32f76eaf
   - enabled: 1
-    path: Assets/Scenes/story/story_01.unity
-    guid: 4d374f6197e0b664ea5972b45f6e5b52
-  - enabled: 1
-    path: Assets/Scenes/Village/Village_01.unity
-    guid: 11184f83938d6c14f8b26ec81ed1b9c8
-  - enabled: 1
-    path: Assets/Scenes/Credit.unity
-    guid: 74450c91fbcc588408e624cc66a11d9f
-  - enabled: 1
-    path: Assets/Scenes/Tutorials.unity
-    guid: 0122a0876bb5e064c866dacb32f66355
-  - enabled: 1
-    path: Assets/Scenes/ending/BadEnding.unity
-    guid: 1f5bad77d6bc2964d805e3ff7c3cabf6
-  - enabled: 1
-    path: Assets/Scenes/ending/HappyEnding.unity
-    guid: 6097ab77272d1f941bdcfbaf741d942a
+    path: Assets/Resources/2D_Pixel_Light/Scenes/Complete.unity
+    guid: c3e82cf2e80ca5542bbc8025185d98c8
   m_configObjects:
-    com.unity.input.settings: {fileID: 11400000, guid: dc124abd6b844d04a92c7bad280acf32, type: 2}
-    com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 4c148fb80c3ee0343bc6a5213822ec32, type: 3}
+    com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
   m_UseUCBPForAssetBundles: 0
