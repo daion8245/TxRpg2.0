@@ -11,6 +11,12 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Resources/2D_Pixel_Light/Scenes/Complete.unity
     guid: c3e82cf2e80ca5542bbc8025185d98c8
+  - enabled: 1
+    path: Assets/Scenes/Puzzle/PuzzleRoom.unity
+    guid: df94b033903d3504584bfbaede158634
+  - enabled: 1
+    path: Assets/Scenes/Batttle/BattleTest.unity
+    guid: 4c1a1a324e2fe7b4c8401916a64ba5e4
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
   m_UseUCBPForAssetBundles: 0

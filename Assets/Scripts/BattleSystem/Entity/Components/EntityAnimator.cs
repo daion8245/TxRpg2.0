@@ -30,26 +30,34 @@ namespace TxRpg.Entity
         public async UniTask PlayAttackAsync(CancellationToken ct = default)
         {
             _animStateMachine.TransitionTo(AnimState.Attack);
-            await _adapter.PlayAsync(AnimStateMachine.GetAnimationName(AnimState.Attack), ct);
+            if (_adapter != null)
+                await _adapter.PlayAsync(AnimStateMachine.GetAnimationName(AnimState.Attack), ct);
             PlayIdle();
         }
 
         public async UniTask PlayHitAsync(CancellationToken ct = default)
         {
             _animStateMachine.TransitionTo(AnimState.Hit);
-            await _adapter.PlayAsync(AnimStateMachine.GetAnimationName(AnimState.Hit), ct);
+            if (_adapter != null)
+                await _adapter.PlayAsync(AnimStateMachine.GetAnimationName(AnimState.Hit), ct);
+            else if (_spriteRenderer != null)
+                await TweenHelper.ColorFlashAsync(_spriteRenderer, Color.red, 0.18f, ct);
             PlayIdle();
         }
 
         public async UniTask PlayDieAsync(CancellationToken ct = default)
         {
             _animStateMachine.TransitionTo(AnimState.Die);
-            await _adapter.PlayAsync(AnimStateMachine.GetAnimationName(AnimState.Die), ct);
+            if (_adapter != null)
+                await _adapter.PlayAsync(AnimStateMachine.GetAnimationName(AnimState.Die), ct);
+            else if (_spriteRenderer != null)
+                await TweenHelper.ColorFlashAsync(_spriteRenderer, new Color(1f, 0.25f, 0.25f, 0.4f), 0.25f, ct);
         }
 
         public async UniTask PlayAnimationAsync(string animName, CancellationToken ct = default)
         {
-            await _adapter.PlayAsync(animName, ct);
+            if (_adapter != null)
+                await _adapter.PlayAsync(animName, ct);
         }
 
         public void SetFacingLeft(bool facingLeft)

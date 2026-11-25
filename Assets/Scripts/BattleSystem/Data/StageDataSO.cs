@@ -20,11 +20,16 @@ namespace TxRpg.Data
         [Header("아군 배치 슬롯")]
         public Vector2[] playerSlots = new[]
         {
-            new Vector2(-3f, 0f),
+            new Vector2(-5.2f, -2.1f),
             new Vector2(-4f, 1f),
             new Vector2(-4f, -1f),
             new Vector2(-5f, 0f)
         };
+
+        [Header("타임라인 전투 규칙")]
+        public int slotCount = 5;
+        public int playerHpOverride = 12;
+        public int manaPerTurn = 5;
 
         [Header("보상")]
         public int goldReward;
@@ -35,7 +40,11 @@ namespace TxRpg.Data
     public class EnemySpawnData
     {
         public UnitDataSO unitData;
+        public EnemyPatternSO intentPattern;
         public Vector2 position;
+        public int hpOverride = 20;
+        public int weakGaugeOverride = 0;
+        public int groggyDurationOverride = 0;
         public int level = 1;
     }
 }

@@ -8,7 +8,17 @@ namespace TxRpg.Effect
     {
         [SerializeField] private float speed = 15f;
         [SerializeField] private bool useArc;
-        [SerializeField] private float arcHeight = 2f;
+        [SerializeField] private float arcHeight = 1.4f;
+        [SerializeField] private SpriteRenderer spriteRenderer;
+
+        public void ConfigureVisual(Color color, float scale = 1f)
+        {
+            if (spriteRenderer == null)
+                spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+            if (spriteRenderer != null)
+                spriteRenderer.color = color;
+            transform.localScale = Vector3.one * scale;
+        }
 
         public async UniTask LaunchAsync(Vector3 startPos, Vector3 endPos, CancellationToken ct = default)
         {
@@ -16,7 +26,7 @@ namespace TxRpg.Effect
             gameObject.SetActive(true);
 
             float distance = Vector3.Distance(startPos, endPos);
-            float duration = distance / Mathf.Max(speed, 0.1f);
+            float duration = Mathf.Max(0.12f, distance / Mathf.Max(speed, 0.1f));
             float elapsed = 0f;
 
             while (elapsed < duration)
@@ -24,6 +34,7 @@ namespace TxRpg.Effect
                 elapsed += Time.deltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
 
+                Vector3 prevPos = transform.position;
                 Vector3 pos = Vector3.Lerp(startPos, endPos, t);
 
                 if (useArc)
@@ -32,19 +43,14 @@ namespace TxRpg.Effect
                     pos.y += arc;
                 }
 
-                transform.position = pos;
-
-                // 진행 방향으로 회전
-                if (elapsed > 0)
+                Vector3 direction = (pos - prevPos).normalized;
+                if (direction.sqrMagnitude > 0.0001f)
                 {
-                    Vector3 direction = (pos - transform.position).normalized;
-                    if (direction != Vector3.zero)
-                    {
-                        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
-                        transform.rotation = Quaternion.Euler(0, 0, angle);
-                    }
+                    float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                    transform.rotation = Quaternion.Euler(0, 0, angle);
                 }
 
+                transform.position = pos;
                 await UniTask.Yield(ct);
             }
 

@@ -1,15 +1,15 @@
 using Cysharp.Threading.Tasks;
+using TMPro;
 using TxRpg.Core;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace TxRpg.UI
 {
     public class DamagePopup : MonoBehaviour, IPoolable
     {
-        [SerializeField] private Text damageText;
-        [SerializeField] private float floatSpeed = 1f;
-        [SerializeField] private float fadeDuration = 0.8f;
+        [SerializeField] private TMP_Text damageText;
+        [SerializeField] private float floatSpeed = 1.2f;
+        [SerializeField] private float fadeDuration = 0.85f;
         [SerializeField] private Color normalColor = Color.white;
         [SerializeField] private Color criticalColor = Color.yellow;
         [SerializeField] private Color healColor = Color.green;
@@ -19,6 +19,9 @@ namespace TxRpg.UI
 
         private void Awake()
         {
+            if (damageText == null)
+                damageText = GetComponentInChildren<TMP_Text>();
+
             _canvasGroup = GetComponent<CanvasGroup>();
             if (_canvasGroup == null)
                 _canvasGroup = gameObject.AddComponent<CanvasGroup>();
@@ -26,27 +29,26 @@ namespace TxRpg.UI
 
         public void Show(int damage, bool isCritical, Vector3 worldPosition)
         {
-            transform.position = worldPosition;
-
             if (damage < 0)
-            {
-                // 힐
-                damageText.text = $"+{-damage}";
-                damageText.color = healColor;
-            }
+                ShowText($"+{-damage}", healColor, worldPosition, 1f);
             else
-            {
-                damageText.text = damage.ToString();
-                damageText.color = isCritical ? criticalColor : normalColor;
-            }
+                ShowText($"-{damage}", isCritical ? criticalColor : normalColor, worldPosition, isCritical ? 1.25f : 1f);
+        }
 
-            if (isCritical)
-                transform.localScale = Vector3.one * 1.3f;
-            else
-                transform.localScale = Vector3.one;
+        public void ShowText(string text, Color color, Vector3 worldPosition, float scale = 1f)
+        {
+            transform.position = worldPosition;
+            transform.localScale = Vector3.one * scale;
+
+            if (damageText != null)
+            {
+                damageText.text = text;
+                damageText.color = color;
+            }
 
             _elapsed = 0f;
-            _canvasGroup.alpha = 1f;
+            if (_canvasGroup != null) _canvasGroup.alpha = 1f;
+            gameObject.SetActive(true);
 
             AnimateAsync(destroyCancellationToken).Forget();
         }
@@ -56,24 +58,19 @@ namespace TxRpg.UI
             while (_elapsed < fadeDuration)
             {
                 _elapsed += Time.deltaTime;
-                float t = _elapsed / fadeDuration;
-
-                // 위로 떠오르기
+                float t = Mathf.Clamp01(_elapsed / fadeDuration);
                 transform.position += Vector3.up * (floatSpeed * Time.deltaTime);
-
-                // 페이드 아웃
-                _canvasGroup.alpha = 1f - t;
-
+                if (_canvasGroup != null) _canvasGroup.alpha = 1f - t;
                 await UniTask.Yield(ct);
             }
 
-            gameObject.SetActive(false);
+            Destroy(gameObject);
         }
 
         public void OnSpawn()
         {
             _elapsed = 0f;
-            _canvasGroup.alpha = 1f;
+            if (_canvasGroup != null) _canvasGroup.alpha = 1f;
         }
 
         public void OnDespawn()

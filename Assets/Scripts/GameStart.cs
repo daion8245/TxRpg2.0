@@ -28,7 +28,9 @@ public class GameStart : MonoBehaviour
         Exitbtn.onClick.AddListener(() =>
         {
             // 에디터 강제 종료
+#if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
+#endif
             // 빌드된 게임 강제 종료
             Application.Quit();
         });

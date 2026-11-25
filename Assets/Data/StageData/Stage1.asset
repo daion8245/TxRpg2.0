@@ -12,14 +12,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4332e172741360d4db00c4495e1b5cf7, type: 3}
   m_Name: Stage1
   m_EditorClassIdentifier: Assembly-CSharp::TxRpg.Data.StageDataSO
-  stageName: 
+  stageName: "\uB3CC\uACA9 \uAE30\uC0AC (7\uC808 \uC608\uC2DC)"
   background: {fileID: 0}
   bgm: {fileID: 0}
-  enemies: []
+  enemies:
+  - unitData: {fileID: 11400000, guid: 31c6a09b81a477b43bac638a2fbac46d, type: 2}
+    intentPattern: {fileID: 11400000, guid: 2f9245248f7241e4ea21c9c06def51a5, type: 2}
+    position: {x: 4.5, y: -0.55}
+    hpOverride: 20
+    weakGaugeOverride: 2
+    groggyDurationOverride: 2
+    level: 1
   playerSlots:
-  - {x: -3, y: 0}
-  - {x: -4, y: 1}
-  - {x: -4, y: -1}
-  - {x: -5, y: 0}
+  - {x: -4.8, y: -0.55}
+  slotCount: 5
+  playerHpOverride: 12
+  manaPerTurn: 5
   goldReward: 0
   expReward: 0

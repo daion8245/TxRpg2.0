@@ -31,7 +31,7 @@ namespace TxRpg.Animation
                 return; // 사망 상태에서는 Idle 복귀만 허용
 
             _currentState = newState;
-            _adapter.Play(GetAnimationName(newState));
+            _adapter?.Play(GetAnimationName(newState));
         }
 
         public static string GetAnimationName(AnimState state)

@@ -12,13 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cf0dcdc496b0631469817fa2e38970c5, type: 3}
   m_Name: PlayerData1
   m_EditorClassIdentifier: Assembly-CSharp::TxRpg.Data.UnitDataSO
-  unitName: 
-  portrait: {fileID: 0}
-  prefab: {fileID: 0}
-  baseHp: 100
-  baseMp: 50
-  baseAtk: 10
-  baseDef: 5
+  unitName: "\uAE30\uC0AC"
+  portrait: {fileID: 21300000, guid: 5b733f4995589094a85dbfe4e39e01a6, type: 3}
+  prefab: {fileID: 7025538344022946037, guid: dd478d676ad332c4fbb64021a1d34650, type: 3}
+  baseHp: 6
+  baseMp: 3
+  baseAtk: 2
+  baseDef: 2
   baseSpd: 10
   baseKd: 0
   baseKr: 0

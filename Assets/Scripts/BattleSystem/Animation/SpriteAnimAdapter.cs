@@ -19,13 +19,15 @@ namespace TxRpg.Animation
 
         public void Play(string stateName)
         {
-            if (_animator == null) return;
+            if (_animator == null || !_animator.isActiveAndEnabled) return;
+            if (!_animator.HasState(0, Animator.StringToHash(stateName))) return;
             _animator.Play(stateName);
         }
 
         public async UniTask PlayAsync(string stateName, CancellationToken ct = default)
         {
-            if (_animator == null) return;
+            if (_animator == null || !_animator.isActiveAndEnabled) return;
+            if (!_animator.HasState(0, Animator.StringToHash(stateName))) return;
 
             _animator.Play(stateName);
 

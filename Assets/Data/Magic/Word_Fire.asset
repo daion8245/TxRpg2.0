@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f651ea26d54ab534c9b668c450d85cc7, type: 3}
+  m_Name: Word_Fire
+  m_EditorClassIdentifier: Assembly-CSharp::TxRpg.Data.MagicWordSO
+  wordType: 0
+  displayName: "\uD654\uC5FC"
+  isMain: 1
+  manaCost: 1
+  grantedTrait: 1
+  description: "\uD2B9\uC9D5: [\uD654\uC5FC]. \uC811\uADFC\xB7\uACF5\uACA9 \uC900\uBE44
+    \uCE74\uC6B4\uD130. \uBC29\uD328 \uC55E\uC5D0 \uB450\uBA74 \uBD88\uBD99\uC740
+    \uBC29\uD328."
+  accentColor: {r: 1, g: 0.4, b: 0.2, a: 1}
