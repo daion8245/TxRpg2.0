@@ -6,21 +6,44 @@ using TxRpg.Data;
 namespace TxRpg.Magic
 {
     /// <summary>
-    /// SpellResolver.TryBuildSpell이 생성하는 불변 주문 결과.
-    /// 단어 특징의 합집합(Traits)과 기본 위력(화염 4, 화염구 4, 투척 방패 2, 불붙은 투척 방패 8, 강하게 +2)을 제공합니다.
+    /// 칸 하나에 쌓인 단어: 메인 1장 + 서브 0~2장 (Docs/TxRpg/마법-칸쌓기-상세기획서.md).
+    /// </summary>
+    public readonly struct SlotWords
+    {
+        public MagicWordType Main { get; }
+        public IReadOnlyList<MagicWordType> Subs { get; }
+
+        public SlotWords(MagicWordType main, IReadOnlyList<MagicWordType> subs = null)
+        {
+            Main = main;
+            Subs = subs ?? Array.Empty<MagicWordType>();
+        }
+
+        public bool Has(MagicWordType sub) => Subs.Contains(sub);
+        public int CardCount => 1 + Subs.Count;
+    }
+
+    /// <summary>
+    /// SpellResolver.BuildSpell이 생성하는 불변 주문 결과.
+    /// 기본 위력: 화염 4(화염 강하게 +2), 투척 방패 2, 불붙은 투척 방패 8(화염 강하게 +2), 막기 2(방패 강하게 +1).
     /// </summary>
     public sealed class SpellData
     {
         public MagicWordType Body { get; }
         public bool IsLaunched { get; }
         public bool IsBurning { get; }
-        public bool IsStrong { get; }
+        public bool IsFireStrong { get; }
+        public bool IsShieldStrong { get; }
+        /// <summary>마나 비용 = 문장에 놓인 카드 수.</summary>
         public int Cost { get; }
+        /// <summary>타임라인에서 차지하는 칸 수 = 문장의 메인 단어 수. 앞 칸들은 영창.</summary>
+        public int Span { get; }
         public string Name { get; }
         public SpellTrait Traits { get; }
 
+        public bool IsStrong => IsFireStrong || IsShieldStrong;
         public bool IsSelfTarget => Body == MagicWordType.Shield && !IsLaunched;
-        public int GuardPower => Body == MagicWordType.Shield ? 2 + (IsStrong ? 1 : 0) : 0;
+        public int GuardPower => Body == MagicWordType.Shield ? 2 + (IsShieldStrong ? 1 : 0) : 0;
 
         public bool HasTrait(SpellTrait trait) => trait != SpellTrait.None && (Traits & trait) == trait;
 
@@ -28,40 +51,42 @@ namespace TxRpg.Magic
             MagicWordType body,
             bool isLaunched,
             bool isBurning,
-            bool isStrong,
+            bool isFireStrong,
+            bool isShieldStrong,
             int cost,
+            int span,
             string name,
             SpellTrait traits)
         {
             Body = body;
             IsLaunched = isLaunched;
             IsBurning = isBurning;
-            IsStrong = isStrong;
+            IsFireStrong = isFireStrong;
+            IsShieldStrong = isShieldStrong;
             Cost = cost;
+            Span = span;
             Name = name;
             Traits = traits;
         }
 
         /// <summary>
-        /// 그로기/방어 배율 적용 전 기본 공격 위력 (전투 개선 기획서 7절 수치 기준).
-        /// 화염 4, 화염구 4, 투척 방패 2, 불붙은 투척 방패 8, 강하게 +2 (+레벨 보너스).
+        /// 그로기/방어 배율 적용 전 기본 공격 위력 (+레벨 보너스).
+        /// 화염 4, 투척 방패 2, 불붙은 투척 방패 8. 화염에 붙은 강하게만 피해 +2.
         /// </summary>
         public int ComputeBaseDamage(bool targetNear, int levelBonusDamage = 0)
         {
             if (!IsLaunched && !targetNear)
                 return 0;
 
+            int fireBonus = IsFireStrong ? 2 : 0;
             int damage = 0;
             if (Body == MagicWordType.Fire)
-                damage = 4;
+                damage = 4 + fireBonus;
             else if (Body == MagicWordType.Shield && IsLaunched)
-                damage = IsBurning ? 8 : 2;
+                damage = IsBurning ? 8 + fireBonus : 2;
 
             if (damage > 0)
-            {
-                if (IsStrong) damage += 2;
                 damage += Math.Max(0, levelBonusDamage);
-            }
 
             return damage;
         }
@@ -91,90 +116,131 @@ namespace TxRpg.Magic
         public static bool IsMainWord(MagicWordType word) =>
             word == MagicWordType.Fire || word == MagicWordType.Shield;
 
-        public static bool TryBuildSpell(IReadOnlyList<MagicWordType> group, out SpellData spell, out string error)
+        /// <summary>칸 하나(메인 1 + 서브 0~2)가 규칙에 맞는지 검사합니다.</summary>
+        public static bool CanStack(MagicWordType main, IReadOnlyList<MagicWordType> subs, out string error)
+        {
+            error = string.Empty;
+            if (!Enum.IsDefined(typeof(MagicWordType), main) || !IsMainWord(main))
+            {
+                error = "칸에는 메인 단어(화염 또는 방패)를 먼저 놓으세요.";
+                return false;
+            }
+
+            var seen = new HashSet<MagicWordType>();
+            foreach (MagicWordType sub in subs ?? Array.Empty<MagicWordType>())
+            {
+                if (!Enum.IsDefined(typeof(MagicWordType), sub))
+                {
+                    error = $"정의되지 않은 단어입니다. ({(int)sub})";
+                    return false;
+                }
+                if (IsMainWord(sub))
+                {
+                    error = "한 칸에는 메인 단어를 하나만 놓을 수 있습니다. 다른 칸을 선택하세요.";
+                    return false;
+                }
+                if (!seen.Add(sub))
+                {
+                    error = $"같은 서브 단어는 한 칸에 하나만 붙일 수 있습니다: {WordName(sub)}";
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// 이웃한 두 칸이 한 문장으로 이어지는지. v1은 [화염(발사 없음)] → [방패] 하나뿐.
+        /// 발사가 붙은 화염은 이미 날아갔으므로 이어지지 않습니다.
+        /// </summary>
+        public static bool Links(SlotWords front, SlotWords back) =>
+            front.Main == MagicWordType.Fire && !front.Has(MagicWordType.Launch) && back.Main == MagicWordType.Shield;
+
+        /// <summary>
+        /// 이어진 칸들(각 칸은 CanStack 통과, 이웃 칸은 Links 통과)을 마지막 칸에서 발동하는 주문 하나로 만듭니다.
+        /// </summary>
+        public static SpellData BuildSpell(IReadOnlyList<SlotWords> chain)
+        {
+            if (chain == null || chain.Count == 0)
+                throw new ArgumentException("주문 칸이 없습니다.", nameof(chain));
+
+            SlotWords body = chain[chain.Count - 1];
+            bool hasFire = chain.Any(w => w.Main == MagicWordType.Fire);
+            bool isBurning = body.Main == MagicWordType.Shield && hasFire;
+            bool hasLaunch = body.Has(MagicWordType.Launch);
+            bool fireStrong = chain.Any(w => w.Main == MagicWordType.Fire && w.Has(MagicWordType.Strong));
+            bool shieldStrong = body.Main == MagicWordType.Shield && body.Has(MagicWordType.Strong);
+
+            string name;
+            if (body.Main == MagicWordType.Fire)
+            {
+                name = (fireStrong ? "강한 " : "") + (hasLaunch ? "화염구" : "기본 화염");
+            }
+            else
+            {
+                name = (shieldStrong ? "단단한 " : "") + (hasLaunch ? "투척 방패" : "방패");
+                if (isBurning) name = (fireStrong ? "거세게 불붙은 " : "불붙은 ") + name;
+            }
+
+            SpellTrait traits = SpellTrait.None;
+            if (hasFire) traits |= SpellTrait.Fire;
+            if (hasLaunch) traits |= SpellTrait.Projectile;
+            if (fireStrong || shieldStrong) traits |= SpellTrait.Heavy;
+            if (body.Main == MagicWordType.Shield)
+                traits |= hasLaunch ? SpellTrait.Intercept : SpellTrait.Block;
+
+            return new SpellData(body.Main, hasLaunch, isBurning, fireStrong, shieldStrong,
+                chain.Sum(w => w.CardCount), chain.Count, name, traits);
+        }
+
+        /// <summary>
+        /// 타임라인이 없는 탐험 퍼즐용: 입력 순서를 칸으로 읽습니다.
+        /// 메인이 새 칸을 시작하고 서브는 바로 앞 메인에 붙으며, 하나로 이어지는 문장만 시전할 수 있습니다.
+        /// </summary>
+        public static bool TryBuildSpell(IReadOnlyList<MagicWordType> words, out SpellData spell, out string error)
         {
             spell = null;
             error = string.Empty;
 
-            if (group == null || group.Count == 0)
+            if (words == null || words.Count == 0)
             {
                 error = "주문에 넣을 단어를 선택하세요.";
                 return false;
             }
 
-            var seen = new HashSet<MagicWordType>();
-            MagicWordType body = MagicWordType.Fire;
-            int mainCount = 0;
-            int fireIndex = -1;
-            int shieldIndex = -1;
-            bool hasLaunch = false;
-            bool hasStrong = false;
-
-            for (int i = 0; i < group.Count; i++)
+            var mains = new List<MagicWordType>();
+            var subs = new List<List<MagicWordType>>();
+            foreach (MagicWordType word in words)
             {
-                MagicWordType word = group[i];
-                if (!Enum.IsDefined(typeof(MagicWordType), word))
+                if (IsMainWord(word))
                 {
-                    error = $"정의되지 않은 단어입니다. ({(int)word})";
+                    mains.Add(word);
+                    subs.Add(new List<MagicWordType>());
+                }
+                else if (mains.Count == 0)
+                {
+                    error = "서브 단어(발사·강하게)는 메인 단어(화염·방패) 뒤에 붙이세요.";
                     return false;
                 }
-
-                if (!seen.Add(word))
+                else
                 {
-                    error = $"같은 단어는 한 주문에 중복할 수 없습니다: {WordName(word)}";
+                    subs[subs.Count - 1].Add(word);
+                }
+            }
+
+            var chain = new List<SlotWords>(mains.Count);
+            for (int i = 0; i < mains.Count; i++)
+            {
+                if (!CanStack(mains[i], subs[i], out error)) return false;
+                chain.Add(new SlotWords(mains[i], subs[i]));
+                if (i > 0 && !Links(chain[i - 1], chain[i]))
+                {
+                    error = "한 번에 하나로 이어지는 주문만 시전할 수 있습니다. (발사 없는 화염 → 방패만 이어집니다)";
                     return false;
                 }
-
-                switch (word)
-                {
-                    case MagicWordType.Fire:
-                        fireIndex = i;
-                        body = word;
-                        mainCount++;
-                        break;
-                    case MagicWordType.Shield:
-                        shieldIndex = i;
-                        body = word;
-                        mainCount++;
-                        break;
-                    case MagicWordType.Launch:
-                        hasLaunch = true;
-                        break;
-                    case MagicWordType.Strong:
-                        hasStrong = true;
-                        break;
-                }
             }
 
-            if (mainCount == 0)
-            {
-                error = "메인 단어(화염 또는 방패)가 필요합니다.";
-                return false;
-            }
-
-            if (fireIndex >= 0 && shieldIndex >= 0 && shieldIndex < fireIndex)
-            {
-                error = "화염으로 방패를 강화하려면 화염을 방패보다 앞에 놓으세요.";
-                return false;
-            }
-
-            bool isBurning = fireIndex >= 0 && shieldIndex >= 0;
-            string name = body == MagicWordType.Fire
-                ? (hasLaunch ? "화염구" : "기본 화염")
-                : (hasLaunch ? "투척 방패" : "방패");
-
-            if (isBurning) name = "불붙은 " + name;
-            if (hasStrong) name = "강화 " + name;
-
-            // 특징 합집합 계산 (기획서 4절)
-            SpellTrait traits = SpellTrait.None;
-            if (fireIndex >= 0) traits |= SpellTrait.Fire;
-            if (hasLaunch) traits |= SpellTrait.Projectile;
-            if (hasStrong) traits |= SpellTrait.Heavy;
-            if (shieldIndex >= 0)
-                traits |= hasLaunch ? SpellTrait.Intercept : SpellTrait.Block;
-
-            spell = new SpellData(body, hasLaunch, isBurning, hasStrong, group.Count, name, traits);
+            spell = BuildSpell(chain);
             return true;
         }
     }

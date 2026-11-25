@@ -99,7 +99,6 @@ namespace TxRpg.UI
         private BattleManager _manager;
         private CombatTimeline _timeline;
 
-        private readonly List<int> _draftCardIds = new();
         private readonly List<Button> _spawnedCardButtons = new();
         private int _selectedSlot = 1;
         private int _selectedTarget;
@@ -120,8 +119,7 @@ namespace TxRpg.UI
         private static readonly Color ColSlotGroggy = new(0.14f, 0.26f, 0.30f, 0.96f);
         private static readonly Color ColSlotExecuting = new(0.48f, 0.36f, 0.14f, 0.98f);
         private static readonly Color ColCardNormal = new(0.20f, 0.23f, 0.30f, 1f);
-        private static readonly Color ColCardDraft = new(0.25f, 0.52f, 0.36f, 1f);
-        private static readonly Color ColCardReserved = new(0.15f, 0.15f, 0.17f, 0.65f);
+        private static readonly Color ColCardPlaced = new(0.25f, 0.52f, 0.36f, 1f);
         private static readonly Color ColTargetNormal = new(0.20f, 0.22f, 0.28f, 1f);
         private static readonly Color ColTargetSelected = new(0.65f, 0.26f, 0.22f, 1f);
 
@@ -132,6 +130,9 @@ namespace TxRpg.UI
             if (cardButtonTemplate != null) cardButtonTemplate.gameObject.SetActive(false);
             if (deckModalPanel != null) deckModalPanel.SetActive(false);
             if (resultPanel != null) resultPanel.SetActive(false);
+            // 칸 쌓기 방식에서는 카드 클릭이 곧 배치라 초안용 버튼을 쓰지 않음
+            if (placeButton != null) placeButton.gameObject.SetActive(false);
+            if (clearDraftButton != null) clearDraftButton.gameObject.SetActive(false);
             BindStaticListeners();
         }
 
@@ -167,16 +168,9 @@ namespace TxRpg.UI
                 }
             }
 
-            placeButton?.onClick.AddListener(OnClickPlace);
             moveButton?.onClick.AddListener(OnClickToggleMove);
             removeButton?.onClick.AddListener(OnClickRemove);
             retargetButton?.onClick.AddListener(OnClickRetarget);
-            clearDraftButton?.onClick.AddListener(() =>
-            {
-                _draftCardIds.Clear();
-                _feedback = "초안을 비웠습니다.";
-                RefreshAll();
-            });
             confirmButton?.onClick.AddListener(OnClickConfirm);
             stepExecuteButton?.onClick.AddListener(() => _manager?.StepExecuteAsync().Forget());
             autoExecuteButton?.onClick.AddListener(() => _manager?.AutoExecuteAllAsync().Forget());
@@ -250,7 +244,6 @@ namespace TxRpg.UI
         {
             _manager = manager;
             _timeline = timeline;
-            _draftCardIds.Clear();
             _selectedSlot = 1;
             _selectedTarget = timeline.FirstAliveEnemyIndex();
             _moveFromSlot = -1;
@@ -267,7 +260,6 @@ namespace TxRpg.UI
 
         public void OnNewTurnStarted()
         {
-            _draftCardIds.Clear();
             _moveFromSlot = -1;
             _selectedTarget = _timeline.FirstAliveEnemyIndex();
             _feedback = $"턴 {_timeline.Turn} 시작! 약점 게이지와 그로기 상태가 이어집니다.";
@@ -332,7 +324,6 @@ namespace TxRpg.UI
             if (_timeline == null) return;
 
             bool planning = _timeline.Phase == TimelinePhase.Plan && !_manager.IsAnimating;
-            _draftCardIds.RemoveAll(id => !_timeline.Hand.Any(c => c.Id == id));
 
             if (!_timeline.IsEnemyAlive(_selectedTarget))
                 _selectedTarget = _timeline.FirstAliveEnemyIndex();
@@ -478,70 +469,53 @@ namespace TxRpg.UI
             {
                 CombatCard card = _timeline.Hand[i];
                 Button btn = _spawnedCardButtons[i];
-                bool reserved = _timeline.IsCardReserved(card.Id);
-                bool inDraft = _draftCardIds.Contains(card.Id);
+                int placedSlot = _timeline.GetCardSlot(card.Id);
 
-                btn.interactable = planning && !reserved;
+                btn.interactable = planning; // 놓인 카드를 다시 누르면 손패로 돌아옴
                 Image bg = btn.GetComponent<Image>();
                 if (bg != null)
-                    bg.color = reserved ? ColCardReserved : (inDraft ? ColCardDraft : ColCardNormal);
+                    bg.color = placedSlot >= 0 ? ColCardPlaced : ColCardNormal;
 
                 TMP_Text label = btn.GetComponentInChildren<TMP_Text>();
                 if (label != null)
                 {
                     string trait = WordTraitShort(card.Word);
-                    string state = reserved ? "[예약]" : (inDraft ? "[초안]" : "비용1");
+                    string state = placedSlot >= 0 ? $"[{placedSlot + 1}칸]" : (SpellResolver.IsMainWord(card.Word) ? "메인" : "서브");
                     label.text = $"<b>{SpellResolver.WordName(card.Word)}</b> #{card.Id}\n<size=12><color=#8CE6FF>{trait}</color> · {state}</size>";
                 }
             }
 
-            // 초안 & 미리보기
+            // 선택 칸 & 미리보기
             if (draftSequenceText != null)
             {
-                if (_draftCardIds.Count == 0)
-                    draftSequenceText.text = $"선택 칸: {_selectedSlot + 1}칸  |  초안: (카드를 클릭해 묶으세요)";
-                else
-                {
-                    string seq = string.Join(" + ", _draftCardIds.Select(id => SpellResolver.WordName(CardById(id).Word)));
-                    draftSequenceText.text = $"선택 칸: {_selectedSlot + 1}칸  |  초안: [{seq}]";
-                }
+                SlotStack stack = _timeline.GetStack(_selectedSlot);
+                string stackText = stack == null
+                    ? "비어 있음 — 메인 카드(화염·방패)를 누르세요"
+                    : $"[{string.Join("+", stack.Cards.Select(c => SpellResolver.WordName(c.Word)))}] — 서브 카드(발사·강하게)를 눌러 쌓으세요";
+                draftSequenceText.text = $"선택 칸: {_selectedSlot + 1}칸  |  {stackText}";
             }
 
             if (spellPreviewText != null)
             {
-                if (_draftCardIds.Count == 0)
+                int castSlot = _timeline.GetOrderCastSlot(_selectedSlot);
+                SlotOrder order = castSlot >= 0 ? _timeline.GetOrder(castSlot) : null;
+                if (order == null)
                 {
-                    spellPreviewText.text = "미리보기: 대기 중 (단어 특징으로 적 행동을 카운터하세요)";
+                    spellPreviewText.text = "미리보기: 칸에 메인을 놓고 서브를 쌓으세요. 화염 바로 다음 칸에 방패를 놓으면 이어집니다.";
                     spellPreviewText.color = new Color(0.75f, 0.8f, 0.88f);
                 }
                 else
                 {
-                    var words = _draftCardIds.Select(id => CardById(id).Word).ToList();
-                    if (SpellResolver.TryBuildSpell(words, out SpellData spell, out string err))
-                    {
-                        string traits = SpellTraitHelper.FormatAll(spell.Traits);
-                        string power = spell.IsSelfTarget
-                            ? $"막기 {spell.GuardPower}"
-                            : $"기본위력 {spell.ComputeBaseDamage(true, _timeline.PlayerLevelBonus)}";
-
-                        if (_timeline.CanPlaceSpan(_selectedSlot, spell.Cost, -1, out string spanErr))
-                        {
-                            int startSlot = _selectedSlot - (spell.Cost - 1);
-                            string spanText = spell.Cost > 1 ? $"{startSlot + 1}~{_selectedSlot + 1}칸 점유" : $"{_selectedSlot + 1}칸 발동";
-                            spellPreviewText.text = $"<b>{spell.Name}</b> (비용 {spell.Cost} · {spanText}) · 특징[{traits}] · {power}";
-                            spellPreviewText.color = new Color(0.55f, 0.95f, 0.72f);
-                        }
-                        else
-                        {
-                            spellPreviewText.text = $"<b>{spell.Name}</b> (비용 {spell.Cost}) — {spanErr}";
-                            spellPreviewText.color = new Color(1f, 0.72f, 0.35f);
-                        }
-                    }
-                    else
-                    {
-                        spellPreviewText.text = $"배치 불가: {err}";
-                        spellPreviewText.color = new Color(1f, 0.45f, 0.45f);
-                    }
+                    SpellData spell = order.Spell;
+                    string traits = SpellTraitHelper.FormatAll(spell.Traits);
+                    string power = spell.IsSelfTarget
+                        ? $"막기 {spell.GuardPower}"
+                        : $"기본위력 {spell.ComputeBaseDamage(true, _timeline.PlayerLevelBonus)}" +
+                          (spell.GuardPower > 0 ? $" · 요격 막기 {spell.GuardPower}" : "");
+                    int startSlot = castSlot - (spell.Span - 1);
+                    string spanText = spell.Span > 1 ? $"{startSlot + 1}칸 영창 → {castSlot + 1}칸 발동" : $"{castSlot + 1}칸 발동";
+                    spellPreviewText.text = $"<b>{spell.Name}</b> (비용 {spell.Cost} · {spanText}) · 특징[{traits}] · {power}";
+                    spellPreviewText.color = new Color(0.55f, 0.95f, 0.72f);
                 }
             }
 
@@ -573,12 +547,10 @@ namespace TxRpg.UI
             }
 
             // 조작 버튼 상태
-            if (placeButton != null) placeButton.interactable = planning && _draftCardIds.Count > 0;
             if (moveButton != null) moveButton.interactable = planning && (_moveFromSlot >= 0 || _timeline.IsSlotOccupied(_selectedSlot));
             if (moveButtonLabel != null) moveButtonLabel.text = _moveFromSlot < 0 ? "칸 이동" : "이동 취소";
             if (removeButton != null) removeButton.interactable = planning && _timeline.IsSlotOccupied(_selectedSlot);
             if (retargetButton != null) retargetButton.interactable = planning && _timeline.IsSlotOccupied(_selectedSlot);
-            if (clearDraftButton != null) clearDraftButton.interactable = planning && _draftCardIds.Count > 0;
 
             if (confirmButton != null) confirmButton.interactable = planning;
             if (confirmButtonLabel != null) confirmButtonLabel.text = $"계획 확정 ({_timeline.PlannedCost}/{_timeline.Mana} MP)";
@@ -642,7 +614,7 @@ namespace TxRpg.UI
             {
                 if (_timeline.TryMove(_moveFromSlot, slotIdx, out string err))
                 {
-                    _feedback = $"{_moveFromSlot + 1}칸 주문을 {slotIdx + 1}칸으로 이동했습니다.";
+                    _feedback = $"{_moveFromSlot + 1}칸 카드를 {slotIdx + 1}칸으로 옮겼습니다.";
                     _selectedSlot = slotIdx;
                 }
                 else
@@ -662,22 +634,22 @@ namespace TxRpg.UI
 
         private void OnClickHandCard(int cardId)
         {
-            if (!_draftCardIds.Remove(cardId))
-                _draftCardIds.Add(cardId);
-            RefreshAll();
-        }
+            if (_timeline == null || _timeline.Phase != TimelinePhase.Plan) return;
 
-        private void OnClickPlace()
-        {
-            if (_timeline.TryPlace(_selectedSlot, _draftCardIds, _selectedTarget, out string err))
+            string word = SpellResolver.WordName(CardById(cardId).Word);
+            int placedSlot = _timeline.GetCardSlot(cardId);
+            string err;
+            if (placedSlot >= 0)
             {
-                _feedback = $"{_selectedSlot + 1}칸에 [{_timeline.GetPlanLabel(_selectedSlot)}] 배치 완료.";
-                _draftCardIds.Clear();
-                _moveFromSlot = -1;
+                _feedback = _timeline.TryRemoveCard(cardId, out err)
+                    ? $"{placedSlot + 1}칸의 {word} 카드를 손패로 돌렸습니다."
+                    : err;
             }
             else
             {
-                _feedback = err;
+                _feedback = _timeline.TryAddCard(_selectedSlot, cardId, _selectedTarget, out err)
+                    ? $"{_selectedSlot + 1}칸에 {word} 카드를 놓았습니다."
+                    : err;
             }
             RefreshAll();
         }
@@ -692,8 +664,8 @@ namespace TxRpg.UI
                 }
                 else
                 {
-                    _moveFromSlot = _timeline.GetOrderCastSlot(_selectedSlot);
-                    _feedback = $"{_moveFromSlot + 1}칸 주문을 이동할 목적지 발동 칸을 클릭하세요.";
+                    _moveFromSlot = _selectedSlot;
+                    _feedback = $"{_moveFromSlot + 1}칸 카드를 옮길 빈 칸을 클릭하세요.";
                 }
             }
             else
@@ -709,7 +681,7 @@ namespace TxRpg.UI
             if (_timeline.TryRemove(_selectedSlot, out string err))
             {
                 _moveFromSlot = -1;
-                _feedback = $"{_selectedSlot + 1}칸 주문을 해제했습니다.";
+                _feedback = $"{_selectedSlot + 1}칸 카드를 손패로 돌렸습니다.";
             }
             else
             {
@@ -729,13 +701,6 @@ namespace TxRpg.UI
 
         private void OnClickConfirm()
         {
-            if (_draftCardIds.Count > 0)
-            {
-                _feedback = "배치하지 않은 초안 카드가 있습니다. 배치하거나 '초안 비우기'를 누르세요.";
-                RefreshAll();
-                return;
-            }
-
             if (_timeline.TryConfirm(out string err))
             {
                 _moveFromSlot = -1;

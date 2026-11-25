@@ -41,6 +41,27 @@ namespace TxRpg.Battle
         };
     }
 
+    /// <summary>
+    /// 편집 중인 칸 하나: 메인 카드 1장 + 서브 카드 0~2장 (Docs/TxRpg/마법-칸쌓기-상세기획서.md 3절).
+    /// 이웃 칸과 이어지면 마지막 칸의 SlotOrder 하나로 합쳐집니다.
+    /// </summary>
+    public sealed class SlotStack
+    {
+        public CombatCard Main;
+        public List<CombatCard> Subs = new();
+        public int TargetEnemyIndex;
+
+        public IEnumerable<CombatCard> Cards => Subs.Prepend(Main);
+        public SlotWords Words => new(Main.Word, Subs.Select(c => c.Word).ToArray());
+
+        public SlotStack Clone() => new()
+        {
+            Main = Main,
+            Subs = new List<CombatCard>(Subs),
+            TargetEnemyIndex = TargetEnemyIndex
+        };
+    }
+
     public sealed class EnemySlotResult
     {
         public int EnemyIndex;
@@ -97,7 +118,8 @@ namespace TxRpg.Battle
         private readonly int _slotCount;
         private readonly int _manaPerTurn;
         private readonly int _playerLevelBonus;
-        private readonly SlotOrder[] _orders;
+        private readonly SlotOrder[] _orders; // 발동 칸 기준 파생 데이터 (_stacks에서 RebuildOrders로 생성)
+        private readonly SlotStack[] _stacks; // 편집 원본
         private readonly int[] _enemyHp;
         private readonly int[] _enemyMaxHp;
         private readonly bool[] _enemyNear;
@@ -148,6 +170,7 @@ namespace TxRpg.Battle
             _manaPerTurn = Math.Max(1, manaPerTurn);
             _playerLevelBonus = Math.Max(0, playerLevelBonus);
             _orders = new SlotOrder[_slotCount];
+            _stacks = new SlotStack[_slotCount];
 
             PlayerMaxHp = Math.Max(1, playerMaxHp);
             PlayerHp = PlayerMaxHp;
@@ -206,6 +229,7 @@ namespace TxRpg.Battle
             _manaPerTurn = src._manaPerTurn;
             _playerLevelBonus = src._playerLevelBonus;
             _orders = src._orders.Select(o => o?.Clone()).ToArray();
+            _stacks = src._stacks.Select(st => st?.Clone()).ToArray();
             _enemyHp = (int[])src._enemyHp.Clone();
             _enemyMaxHp = (int[])src._enemyMaxHp.Clone();
             _enemyNear = (bool[])src._enemyNear.Clone();
@@ -275,6 +299,7 @@ namespace TxRpg.Battle
         {
             Hand = Array.AsReadOnly(_drawFunc().ToArray());
             Array.Clear(_orders, 0, _orders.Length);
+            Array.Clear(_stacks, 0, _stacks.Length);
             Array.Clear(_enemyCounteredThisTurn, 0, _enemyCounteredThisTurn.Length);
             CurrentSlot = 0;
             Turn++;
@@ -320,46 +345,17 @@ namespace TxRpg.Battle
             {
                 SlotOrder order = _orders[cast];
                 if (order == null) continue;
-                int start = cast - (order.Spell.Cost - 1);
+                int start = cast - (order.Spell.Span - 1);
                 if (start <= s) return cast;
             }
             return -1;
         }
 
-        public bool IsSlotOccupied(int s) => GetOrderCastSlot(s) >= 0;
+        public SlotStack GetStack(int s) => _stacks[s];
+        public bool IsSlotOccupied(int s) => _stacks[s] != null;
         public bool IsCastingSlot(int s) => GetOrderCastSlot(s) > s;
-        public bool IsCardReserved(int cardId) => _orders.Any(o => o != null && Array.IndexOf(o.CardIds, cardId) >= 0);
-
-        public bool CanPlaceSpan(int castSlot, int wordCount, int ignoreCastSlot, out string error)
-        {
-            error = string.Empty;
-            if (wordCount < 1)
-            {
-                error = "주문 단어가 없습니다.";
-                return false;
-            }
-
-            int startSlot = castSlot - (wordCount - 1);
-            if (startSlot < 0)
-            {
-                error = $"{wordCount}글자 주문은 {wordCount}칸부터 배치할 수 있습니다.";
-                return false;
-            }
-
-            for (int k = startSlot; k <= castSlot; k++)
-            {
-                int owner = GetOrderCastSlot(k);
-                if (owner >= 0 && owner != ignoreCastSlot)
-                {
-                    error = wordCount > 1
-                        ? $"{startSlot + 1}~{castSlot + 1}칸에 이미 다른 주문(또는 영창)이 있어 배치할 수 없습니다."
-                        : "이미 주문(또는 영창)이 배치된 칸입니다.";
-                    return false;
-                }
-            }
-
-            return true;
-        }
+        public int GetCardSlot(int cardId) => Array.FindIndex(_stacks, st => st != null && st.Cards.Any(c => c.Id == cardId));
+        public bool IsCardReserved(int cardId) => GetCardSlot(cardId) >= 0;
 
         public int FirstAliveEnemyIndex()
         {
@@ -370,21 +366,66 @@ namespace TxRpg.Battle
 
         public string GetPlanLabel(int s)
         {
+            SlotStack stack = _stacks[s];
+            if (stack == null) return "빈 칸";
+
+            string cards = "[" + string.Join("+", stack.Cards.Select(c => SpellResolver.WordName(c.Word))) + "]";
             SlotOrder order = _orders[s];
             if (order != null)
             {
                 return order.Spell.IsSelfTarget
-                    ? $"★ {order.Spell.Name} · 자신"
-                    : $"★ {order.Spell.Name} → 적 {order.TargetEnemyIndex + 1}";
+                    ? $"{cards}\n★ {order.Spell.Name} · 자신"
+                    : $"{cards}\n★ {order.Spell.Name} → 적 {order.TargetEnemyIndex + 1}";
             }
 
             int castSlot = GetOrderCastSlot(s);
-            if (castSlot > s)
-            {
-                return $"영창 중 ({_orders[castSlot].Spell.Name} → {castSlot + 1}칸)";
-            }
+            return castSlot > s
+                ? $"{cards}\n영창 → {castSlot + 1}칸 {_orders[castSlot].Spell.Name}"
+                : $"{cards}\n(흩어짐)";
+        }
 
-            return "빈 칸";
+        /// <summary>
+        /// 칸 묶음(_stacks)에서 발동 칸 기준 주문(_orders)을 다시 만듭니다. 계획 편집 중에만 호출합니다.
+        /// 실행 중 영창 방해로 지워진 주문을 되살리지 않도록 실행 단계에서는 부르지 않습니다.
+        /// </summary>
+        private void RebuildOrders()
+        {
+            Array.Clear(_orders, 0, _orders.Length);
+            for (int s = 0; s < _slotCount; s++)
+            {
+                if (_stacks[s] == null) continue;
+
+                var chain = new List<SlotWords> { _stacks[s].Words };
+                var cardIds = _stacks[s].Cards.Select(c => c.Id).ToList();
+                while (s + 1 < _slotCount && _stacks[s + 1] != null && SpellResolver.Links(chain[chain.Count - 1], _stacks[s + 1].Words))
+                {
+                    s++;
+                    chain.Add(_stacks[s].Words);
+                    cardIds.AddRange(_stacks[s].Cards.Select(c => c.Id));
+                }
+
+                SpellData spell = SpellResolver.BuildSpell(chain);
+                _orders[s] = new SlotOrder
+                {
+                    CardIds = cardIds.ToArray(),
+                    Spell = spell,
+                    TargetEnemyIndex = spell.IsSelfTarget ? -1 : _stacks[s].TargetEnemyIndex
+                };
+            }
+        }
+
+        private bool TryFindHandCard(int cardId, out CombatCard card)
+        {
+            for (int i = 0; i < Hand.Count; i++)
+            {
+                if (Hand[i].Id == cardId)
+                {
+                    card = Hand[i];
+                    return true;
+                }
+            }
+            card = default;
+            return false;
         }
 
         private bool CheckEditable(int slotIndex, out string error)
@@ -403,90 +444,142 @@ namespace TxRpg.Battle
             return true;
         }
 
+        /// <summary>
+        /// 빈 칸에 메인 1장 + 서브 0~2장을 한 번에 놓습니다 (에디터 검증·솔버용 묶음 배치).
+        /// </summary>
         public bool TryPlace(int slotIndex, IReadOnlyList<int> cardIds, int targetEnemyIndex, out string error)
         {
             if (!CheckEditable(slotIndex, out error)) return false;
             if (cardIds == null || cardIds.Count == 0) { error = "카드를 선택하세요."; return false; }
+            if (_stacks[slotIndex] != null)
+            {
+                error = "이미 메인 단어가 놓인 칸입니다. 다른 칸을 고르거나 서브 단어를 쌓으세요.";
+                return false;
+            }
 
-            var words = new List<MagicWordType>(cardIds.Count);
             var unique = new HashSet<int>();
+            CombatCard? main = null;
+            var subs = new List<CombatCard>();
             foreach (int id in cardIds)
             {
                 if (!unique.Add(id) || IsCardReserved(id))
                 {
-                    error = "이미 다른 칸에 예약된 카드입니다.";
+                    error = "이미 다른 칸에 놓인 카드입니다.";
                     return false;
                 }
-
-                int handIdx = -1;
-                for (int i = 0; i < Hand.Count; i++)
-                {
-                    if (Hand[i].Id == id) { handIdx = i; break; }
-                }
-
-                if (handIdx < 0)
+                if (!TryFindHandCard(id, out CombatCard card))
                 {
                     error = "현재 손패에 없는 카드입니다.";
                     return false;
                 }
 
-                words.Add(Hand[handIdx].Word);
+                if (main == null && SpellResolver.IsMainWord(card.Word)) main = card;
+                else subs.Add(card);
             }
 
-            if (!SpellResolver.TryBuildSpell(words, out SpellData spell, out error))
-                return false;
-
-            if (!CanPlaceSpan(slotIndex, spell.Cost, ignoreCastSlot: -1, out error))
-                return false;
-
-            if (!spell.IsSelfTarget && !IsEnemyAlive(targetEnemyIndex))
+            if (main == null)
             {
-                error = "살아 있는 적을 대상으로 선택하세요.";
+                error = "칸에는 메인 단어(화염 또는 방패)를 먼저 놓으세요.";
                 return false;
             }
+            if (!SpellResolver.CanStack(main.Value.Word, subs.Select(c => c.Word).ToArray(), out error))
+                return false;
 
-            _orders[slotIndex] = new SlotOrder
+            _stacks[slotIndex] = new SlotStack
             {
-                CardIds = cardIds.ToArray(),
-                Spell = spell,
-                TargetEnemyIndex = spell.IsSelfTarget ? -1 : targetEnemyIndex
+                Main = main.Value,
+                Subs = subs,
+                TargetEnemyIndex = IsEnemyAlive(targetEnemyIndex) ? targetEnemyIndex : FirstAliveEnemyIndex()
             };
+            RebuildOrders();
+            return true;
+        }
+
+        /// <summary>
+        /// 카드 한 장 클릭: 메인은 빈 칸에 놓고, 서브는 그 칸의 메인 위에 쌓습니다.
+        /// </summary>
+        public bool TryAddCard(int slotIndex, int cardId, int targetEnemyIndex, out string error)
+        {
+            if (!CheckEditable(slotIndex, out error)) return false;
+            if (!TryFindHandCard(cardId, out CombatCard card))
+            {
+                error = "현재 손패에 없는 카드입니다.";
+                return false;
+            }
+            if (SpellResolver.IsMainWord(card.Word))
+                return TryPlace(slotIndex, new[] { cardId }, targetEnemyIndex, out error);
+
+            SlotStack stack = _stacks[slotIndex];
+            if (stack == null)
+            {
+                error = "서브 단어는 메인 단어가 놓인 칸에만 쌓을 수 있습니다.";
+                return false;
+            }
+            if (IsCardReserved(cardId))
+            {
+                error = "이미 다른 칸에 놓인 카드입니다.";
+                return false;
+            }
+            if (!SpellResolver.CanStack(stack.Main.Word, stack.Subs.Select(c => c.Word).Append(card.Word).ToArray(), out error))
+                return false;
+
+            stack.Subs.Add(card);
+            RebuildOrders();
+            return true;
+        }
+
+        /// <summary>놓인 카드를 손패로 돌립니다. 메인이면 그 칸의 서브도 함께 돌아옵니다.</summary>
+        public bool TryRemoveCard(int cardId, out string error)
+        {
+            if (!CheckEditable(0, out error)) return false;
+            int s = GetCardSlot(cardId);
+            if (s < 0)
+            {
+                error = "칸에 놓인 카드가 아닙니다.";
+                return false;
+            }
+
+            if (_stacks[s].Main.Id == cardId) _stacks[s] = null;
+            else _stacks[s].Subs.RemoveAll(c => c.Id == cardId);
+            RebuildOrders();
             return true;
         }
 
         public bool TryRemove(int slotIndex, out string error)
         {
             if (!CheckEditable(slotIndex, out error)) return false;
-            int castSlot = GetOrderCastSlot(slotIndex);
-            if (castSlot < 0) { error = "제거할 주문이 없습니다."; return false; }
-            _orders[castSlot] = null;
+            if (_stacks[slotIndex] == null) { error = "비울 카드가 없습니다."; return false; }
+            _stacks[slotIndex] = null;
+            RebuildOrders();
             return true;
         }
 
         public bool TryMove(int fromSlot, int toSlot, out string error)
         {
             if (!CheckEditable(fromSlot, out error) || !CheckEditable(toSlot, out error)) return false;
-            int castFrom = GetOrderCastSlot(fromSlot);
-            if (castFrom < 0)
+            if (_stacks[fromSlot] == null)
             {
-                error = "이동할 주문을 선택하세요.";
+                error = "이동할 카드가 있는 칸을 선택하세요.";
                 return false;
             }
-            if (castFrom == toSlot)
+            if (fromSlot == toSlot)
             {
                 error = "같은 칸으로는 이동할 수 없습니다.";
                 return false;
             }
-
-            SlotOrder order = _orders[castFrom];
-            if (!CanPlaceSpan(toSlot, order.Spell.Cost, ignoreCastSlot: castFrom, out error))
+            if (_stacks[toSlot] != null)
+            {
+                error = "빈 칸으로만 이동할 수 있습니다.";
                 return false;
+            }
 
-            _orders[toSlot] = order;
-            _orders[castFrom] = null;
+            _stacks[toSlot] = _stacks[fromSlot];
+            _stacks[fromSlot] = null;
+            RebuildOrders();
             return true;
         }
 
+        /// <summary>선택한 칸이 속한 문장 전체의 대상을 바꿉니다.</summary>
         public bool TryRetarget(int slotIndex, int targetEnemyIndex, out string error)
         {
             if (!CheckEditable(slotIndex, out error)) return false;
@@ -496,7 +589,10 @@ namespace TxRpg.Battle
                 error = "공격 주문과 살아 있는 적을 선택하세요.";
                 return false;
             }
-            _orders[castSlot].TargetEnemyIndex = targetEnemyIndex;
+
+            for (int k = castSlot - (_orders[castSlot].Spell.Span - 1); k <= castSlot; k++)
+                _stacks[k].TargetEnemyIndex = targetEnemyIndex;
+            RebuildOrders();
             return true;
         }
 
